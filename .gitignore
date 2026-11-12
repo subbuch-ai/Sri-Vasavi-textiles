@@ -1,0 +1,29 @@
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.env
+*.db
+*.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep
+backups/
+
+# Frontend / Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+frontend/.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

@@ -7,6 +7,7 @@ from app.models.auth import Permission, Role, RolePermission
 from app.models.finance import Account
 from app.models.inventory import Category
 from app.models.organization import Branch, BusinessSettings
+from app.models.storefront import StorefrontBanner, StorefrontConfig
 
 DEFAULT_TEXTILE_CATEGORIES = [
     ("MENS_WEAR", "Men's Wear", "Formal, casual, and ethnic menswear"),
@@ -129,6 +130,48 @@ def seed_initial_master_data(db: Session) -> None:
         cat = db.scalar(select(Category).where((Category.code == code) | (Category.name == name)))
         if not cat:
             db.add(Category(code=code, name=name, description=desc, is_active=True))
+
+    # 8. Customer Storefront Configuration & Default Promotional Banners
+    store_cfg = db.scalar(select(StorefrontConfig).limit(1))
+    if not store_cfg:
+        db.add(
+            StorefrontConfig(
+                store_enabled=True,
+                contact_phone="+91 98765 43210",
+                contact_email="orders@srivasavitextiles.com",
+                contact_address="Sri Vasavi Textiles, Main Cloth Market, India",
+                free_delivery_threshold=Decimal("1500.00"),
+                standard_delivery_charge=Decimal("80.00"),
+                cod_enabled=True,
+                upi_enabled=True,
+                bank_transfer_enabled=True,
+            )
+        )
+
+    existing_banner = db.scalar(select(StorefrontBanner).limit(1))
+    if not existing_banner:
+        db.add_all(
+            [
+                StorefrontBanner(
+                    title="Festive Silk & Handloom Sarees",
+                    subtitle="Direct from master weavers & mills — pure silk, cotton sarees, and unstitched dress materials.",
+                    badge_text="NEW SEASON",
+                    cta_text="Explore Sarees",
+                    cta_link="/shop/catalog?category=SAREES",
+                    display_order=1,
+                    is_active=True,
+                ),
+                StorefrontBanner(
+                    title="Wholesale Dealer B2B Hub",
+                    subtitle="Verified cloth merchants get direct wholesale rates, bulk MOQ pricing, and fast dispatch.",
+                    badge_text="B2B WHOLESALE",
+                    cta_text="Wholesale Registration",
+                    cta_link="/shop/wholesale",
+                    display_order=2,
+                    is_active=True,
+                ),
+            ]
+        )
 
     db.commit()
 

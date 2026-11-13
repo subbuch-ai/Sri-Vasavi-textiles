@@ -101,6 +101,8 @@ PERMISSION_DEFINITIONS: List[tuple[str, str, str]] = [
     ("settings:view", "settings", "View business configuration settings"),
     ("settings:manage", "settings", "Update business settings, GST, invoice numbering, and stock policies"),
     ("audit:view", "audit", "View system-wide audit logs and employee activity history"),
+    ("storefront:view", "storefront", "View customer website banners, promotions, and wholesale requests"),
+    ("storefront:manage", "storefront", "Manage customer website settings, banners, offers, and wholesale approvals"),
 ]
 
 ALL_PERMISSION_CODES: Set[str] = {code for code, _, _ in PERMISSION_DEFINITIONS}
@@ -119,6 +121,7 @@ DEFAULT_ROLE_PERMISSIONS: Dict[str, Set[str]] = {
         "reports:view", "reports:export",
         "employees:view",
         "settings:view",
+        "storefront:view", "storefront:manage",
     },
     ROLE_SALES: {
         "dashboard:view",

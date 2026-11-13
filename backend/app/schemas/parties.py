@@ -97,6 +97,7 @@ class CustomerOut(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     customer_type: str
+    wholesale_status: str = "NONE"
     gst_number: Optional[str] = None
     credit_limit: Decimal
     opening_balance: Decimal

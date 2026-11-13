@@ -4,7 +4,9 @@ import {
   BarChart3,
   Boxes,
   ClipboardList,
+  ExternalLink,
   Factory,
+  Globe,
   Landmark,
   LayoutDashboard,
   Package,
@@ -41,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Expenses", to: "/expenses", icon: Receipt, anyPermissions: ["expenses:view"] },
   { label: "Employees", to: "/employees", icon: UserCheck, anyPermissions: ["employees:view", "tasks:view_own"] },
   { label: "Reports", to: "/reports", icon: BarChart3, anyPermissions: ["reports:view"] },
+  { label: "Storefront", to: "/storefront-admin", icon: Globe, anyPermissions: ["storefront:view", "storefront:manage"] },
   { label: "Admin", to: "/admin", icon: ShieldCheck, ownerOnly: true },
   { label: "Settings", to: "/settings", icon: Settings, anyPermissions: ["settings:view", "settings:manage"] },
 ];
@@ -110,9 +113,20 @@ export const Sidebar: React.FC<{ mobileOpen: boolean; onClose: () => void }> = (
         })}
       </nav>
 
-      <div className="p-4 border-t border-navy-800 text-xs text-slate-400">
-        <p className="font-semibold text-slate-200 truncate">{user?.full_name}</p>
-        <p className="text-gold-400 font-medium">{user?.role_display_name}</p>
+      <div className="p-4 border-t border-navy-800 text-xs text-slate-400 space-y-2.5">
+        <a
+          href="/shop"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-between px-3 py-2 rounded-lg bg-navy-800 hover:bg-navy-700 text-gold-300 font-semibold transition"
+        >
+          <span>Customer Storefront</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+        <div>
+          <p className="font-semibold text-slate-200 truncate">{user?.full_name}</p>
+          <p className="text-gold-400 font-medium">{user?.role_display_name}</p>
+        </div>
       </div>
     </div>
   );

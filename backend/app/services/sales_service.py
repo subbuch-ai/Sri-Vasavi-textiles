@@ -16,6 +16,7 @@ from app.models.sales import (
     SaleReturn,
     SaleReturnItem,
 )
+from app.models.storefront import OrderStatusHistory
 from app.schemas.finance import PaymentCreate
 from app.schemas.sales import (
     ConvertOrderToSaleRequest,
@@ -26,6 +27,7 @@ from app.schemas.sales import (
 )
 from app.services.finance_service import create_payment_record, record_financial_entry, resolve_account
 from app.services.inventory_service import apply_stock_movement, get_default_branch_id
+from app.services.notification_service import notify_customer_order_event
 from app.services.numbering_service import generate_sequential_code, next_settings_document_number
 
 
@@ -144,10 +146,39 @@ def update_customer_order(
 
     if payload.expected_delivery_date is not None:
         order.expected_delivery_date = payload.expected_delivery_date
+    status_changed = False
     if payload.order_status is not None:
         if order.converted_sale_id and payload.order_status == "CANCELLED":
             raise ValidationError("Cannot cancel an order that has already been invoiced.")
-        order.order_status = payload.order_status
+        if payload.order_status != order.order_status:
+            status_changed = True
+            if payload.order_status == "CANCELLED" and order.stock_reserved:
+                o_items = db.scalars(
+                    select(CustomerOrderItem).where(CustomerOrderItem.order_id == order.id)
+                ).all()
+                for oit in o_items:
+                    prod = db.scalar(select(Product).where(Product.id == oit.product_id).with_for_update())
+                    if prod:
+                        prod.reserved_stock = max(
+                            Decimal("0.000"), Decimal(prod.reserved_stock) - Decimal(oit.quantity)
+                        )
+                order.stock_reserved = False
+                order.cancellation_requested = False
+            order.order_status = payload.order_status
+            db.add(
+                OrderStatusHistory(
+                    order_id=order.id,
+                    status=order.order_status,
+                    notes=payload.notes or f"Order status updated to {order.order_status}",
+                    changed_by_type="ERP_USER",
+                )
+            )
+            notify_customer_order_event(
+                db,
+                order,
+                title=f"Order {order.order_number} {order.order_status.replace('_', ' ').title()}",
+                message=f"Your order {order.order_number} status is now {order.order_status.replace('_', ' ')}.",
+            )
     if payload.notes is not None:
         order.notes = payload.notes
 
@@ -274,10 +305,10 @@ def create_sale(
         sgst_amount = _q2(tax_total - cgst_amount)
         igst_amount = Decimal("0.00")
 
-    raw_total = subtotal - Decimal(payload.discount_amount) + tax_total
+    raw_total = subtotal - Decimal(payload.discount_amount) + tax_total + Decimal(payload.delivery_charge)
     if raw_total < Decimal("0.00"):
         raise ValidationError("Invoice total cannot be negative.")
-    rounded_total = raw_total.quantize(Decimal("1."))
+    rounded_total = raw_total.quantize(Decimal("1.")) if payload.delivery_charge == Decimal("0.00") else _q2(raw_total)
     round_off = _q2(rounded_total - raw_total)
     total_amount = _q2(rounded_total)
 
@@ -317,6 +348,7 @@ def create_sale(
         sgst_amount=sgst_amount,
         igst_amount=igst_amount,
         tax_amount=tax_total,
+        delivery_charge=Decimal(payload.delivery_charge),
         round_off=round_off,
         total_amount=total_amount,
         total_cogs=total_cogs,
@@ -407,12 +439,23 @@ def convert_order_to_sale(
     if not order_items:
         raise ValidationError("Order has no line items.")
 
+    # Release reservation before create_sale performs the single STOCK_OUT deduction from current_stock
+    if order.stock_reserved:
+        for it in order_items:
+            prod = db.scalar(select(Product).where(Product.id == it.product_id).with_for_update())
+            if prod:
+                prod.reserved_stock = max(
+                    Decimal("0.000"), Decimal(prod.reserved_stock) - Decimal(it.quantity)
+                )
+        order.stock_reserved = False
+
     sale_payload = SaleCreate(
         customer_id=order.customer_id,
         branch_id=order.branch_id,
         sale_type=order.order_type,
         sale_date=payload.sale_date or date.today(),
         discount_amount=order.discount_amount,
+        delivery_charge=order.delivery_charge,
         is_interstate=payload.is_interstate,
         paid_amount=payload.additional_paid_amount,
         payment_mode=payload.payment_mode,
@@ -440,9 +483,25 @@ def convert_order_to_sale(
 
     order.converted_sale_id = sale.id
     order.stock_deducted = True
-    order.order_status = "DELIVERED"
+    if order.order_status not in {"SHIPPED", "DELIVERED"}:
+        order.order_status = "READY_FOR_DISPATCH"
     order.payment_status = sale.payment_status
     order.remaining_amount = sale.pending_amount
+    db.add(
+        OrderStatusHistory(
+            order_id=order.id,
+            status=order.order_status,
+            notes=f"Invoiced as {sale.invoice_number} (Packed & Ready for Dispatch)",
+            changed_by_type="ERP_USER",
+            changed_by_id=user_id,
+        )
+    )
+    notify_customer_order_event(
+        db,
+        order,
+        title=f"Invoice Generated for {order.order_number}",
+        message=f"Tax Invoice {sale.invoice_number} generated. Items packed and ready for dispatch.",
+    )
 
     db.flush()
     return sale

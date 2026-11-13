@@ -31,6 +31,7 @@ SUPPORTED_REPORTS = {
     "purchase_report",
     "wholesale_sales",
     "retail_sales",
+    "online_sales",
     "product_performance",
     "inventory_report",
     "low_stock_report",

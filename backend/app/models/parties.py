@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import Boolean, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import TimestampMixin
@@ -47,6 +47,7 @@ class Customer(Base, TimestampMixin):
     city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     state: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     customer_type: Mapped[str] = mapped_column(String(20), default="RETAIL", nullable=False, index=True)
+    wholesale_status: Mapped[str] = mapped_column(String(20), default="NONE", nullable=False, index=True)
     gst_number: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     credit_limit: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
 
@@ -57,4 +58,11 @@ class Customer(Base, TimestampMixin):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    account = relationship("CustomerAccount", back_populates="customer", uselist=False, cascade="all, delete-orphan")
+    addresses = relationship("CustomerAddress", back_populates="customer", cascade="all, delete-orphan")
+
+    @property
+    def is_wholesale_approved(self) -> bool:
+        return self.customer_type == "WHOLESALE" and self.wholesale_status == "APPROVED"
 

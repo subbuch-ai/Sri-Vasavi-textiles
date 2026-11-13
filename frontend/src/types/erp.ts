@@ -35,9 +35,23 @@ export interface Product {
   gst_rate: number | string;
   barcode?: string | null;
   current_stock: number | string;
+  reserved_stock?: number | string;
+  available_stock?: number | string;
   min_stock_level: number | string;
   image_url?: string | null;
+  images?: Array<{
+    id: number;
+    image_url: string;
+    alt_text?: string | null;
+    display_order: number;
+    is_primary: boolean;
+  }>;
   is_active: boolean;
+  is_storefront_visible?: boolean;
+  is_featured?: boolean;
+  is_new_arrival?: boolean;
+  is_best_seller?: boolean;
+  wholesale_min_qty?: number | string;
   is_low_stock: boolean;
   stock_value: number | string;
   created_at: string;
@@ -218,9 +232,12 @@ export interface CustomerOrder {
   order_date: string;
   expected_delivery_date?: string | null;
   order_type: "WHOLESALE" | "RETAIL";
+  order_source?: "ERP" | "ONLINE";
+  payment_method?: string;
   subtotal: number | string;
   discount_amount: number | string;
   tax_amount: number | string;
+  delivery_charge?: number | string;
   total_amount: number | string;
   advance_amount: number | string;
   remaining_amount: number | string;
@@ -228,6 +245,14 @@ export interface CustomerOrder {
   payment_status: string;
   converted_sale_id?: number | null;
   stock_deducted: boolean;
+  shipping_name?: string | null;
+  shipping_mobile?: string | null;
+  shipping_address?: string | null;
+  shipping_city?: string | null;
+  shipping_state?: string | null;
+  shipping_pincode?: string | null;
+  cancellation_requested?: boolean;
+  cancellation_reason?: string | null;
   notes?: string | null;
   created_at: string;
   items: Array<{

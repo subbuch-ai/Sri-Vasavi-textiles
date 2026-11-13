@@ -14,8 +14,9 @@ from app.core.database import get_db
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.models.auth import User
 from app.models.inventory import Category, Product
+from app.models.storefront import ProductImage
 from app.schemas.common import MessageResponse, PaginatedResponse
-from app.schemas.inventory import ProductCreate, ProductOut, ProductUpdate
+from app.schemas.inventory import ProductCreate, ProductImageOut, ProductOut, ProductUpdate
 from app.services.audit_service import record_audit_log
 from app.services.inventory_service import apply_stock_movement, get_default_branch_id
 from app.services.numbering_service import generate_sequential_code
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/products", tags=["Products"])
 
 
 def _to_product_out(p: Product) -> ProductOut:
+    avail = max(Decimal("0.000"), Decimal(p.current_stock) - Decimal(p.reserved_stock))
     return ProductOut(
         id=p.id,
         product_code=p.product_code,
@@ -43,9 +45,18 @@ def _to_product_out(p: Product) -> ProductOut:
         gst_rate=p.gst_rate,
         barcode=p.barcode,
         current_stock=p.current_stock,
+        reserved_stock=p.reserved_stock,
+        available_stock=avail,
         min_stock_level=p.min_stock_level,
         image_url=p.image_url,
+        images=[ProductImageOut.model_validate(img) for img in (p.images or [])],
         is_active=p.is_active,
+        is_storefront_visible=p.is_storefront_visible,
+        is_featured=p.is_featured,
+        is_new_arrival=p.is_new_arrival,
+        is_best_seller=p.is_best_seller,
+        wholesale_min_qty=p.wholesale_min_qty,
+        specifications=p.specifications,
         is_low_stock=p.current_stock <= p.min_stock_level,
         stock_value=Decimal(p.current_stock * p.purchase_price).quantize(Decimal("0.01")),
         created_at=p.created_at,
@@ -63,7 +74,7 @@ def list_products(
     _: User = Depends(require_permission("products:view")),
     db: Session = Depends(get_db),
 ) -> PaginatedResponse[ProductOut]:
-    stmt = select(Product).options(joinedload(Product.category))
+    stmt = select(Product).options(joinedload(Product.category), joinedload(Product.images))
     if not include_inactive:
         stmt = stmt.where(Product.is_active.is_(True))
     if category_id:
@@ -82,10 +93,10 @@ def list_products(
             )
         )
 
-    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    total = db.scalar(select(func.count()).select_from(stmt.with_only_columns(Product.id).subquery())) or 0
     rows = db.scalars(
         stmt.order_by(desc(Product.id)).offset((page - 1) * page_size).limit(page_size)
-    ).all()
+    ).unique().all()
     total_pages = max(1, (total + page_size - 1) // page_size)
     return PaginatedResponse(
         items=[_to_product_out(p) for p in rows],
@@ -113,7 +124,9 @@ def lookup_products(
                 Product.name.ilike(pat),
             )
         )
-    rows = db.scalars(stmt.order_by(Product.name).limit(30)).all()
+    rows = db.scalars(
+        stmt.options(joinedload(Product.images)).order_by(Product.name).limit(30)
+    ).unique().all()
     return [_to_product_out(p) for p in rows]
 
 
@@ -123,7 +136,9 @@ def get_product(
     _: User = Depends(require_permission("products:view")),
     db: Session = Depends(get_db),
 ) -> ProductOut:
-    p = db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id == product_id))
+    p = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == product_id)
+    )
     if not p:
         raise NotFoundError("Product not found.")
     return _to_product_out(p)
@@ -170,6 +185,12 @@ def create_product(
         min_stock_level=payload.min_stock_level,
         image_url=payload.image_url,
         is_active=payload.is_active,
+        is_storefront_visible=payload.is_storefront_visible,
+        is_featured=payload.is_featured,
+        is_new_arrival=payload.is_new_arrival,
+        is_best_seller=payload.is_best_seller,
+        wholesale_min_qty=payload.wholesale_min_qty,
+        specifications=payload.specifications,
     )
     db.add(p)
     db.flush()
@@ -201,7 +222,9 @@ def create_product(
         ip_address=get_client_ip(request),
     )
     db.commit()
-    loaded = db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id == p.id))
+    loaded = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == p.id)
+    )
     return _to_product_out(loaded)
 
 
@@ -213,7 +236,9 @@ def update_product(
     user: User = Depends(require_permission("products:edit")),
     db: Session = Depends(get_db),
 ) -> ProductOut:
-    p = db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id == product_id))
+    p = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == product_id)
+    )
     if not p:
         raise NotFoundError("Product not found.")
 
@@ -258,10 +283,13 @@ def upload_product_image(
     product_id: int,
     request: Request,
     file: UploadFile = File(...),
+    is_primary: bool = True,
     user: User = Depends(require_permission("products:edit")),
     db: Session = Depends(get_db),
 ) -> ProductOut:
-    p = db.scalar(select(Product).options(joinedload(Product.category)).where(Product.id == product_id))
+    p = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == product_id)
+    )
     if not p:
         raise NotFoundError("Product not found.")
 
@@ -272,11 +300,24 @@ def upload_product_image(
 
     target_dir = settings.upload_path / "products"
     target_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"prod_{p.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+    filename = f"prod_{p.id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}{ext}"
     with (target_dir / filename).open("wb") as buf:
         shutil.copyfileobj(file.file, buf)
 
-    p.image_url = f"/uploads/products/{filename}"
+    img_url = f"/uploads/products/{filename}"
+    if is_primary or not p.image_url:
+        for existing in p.images:
+            existing.is_primary = False
+        p.image_url = img_url
+    db.add(
+        ProductImage(
+            product_id=p.id,
+            image_url=img_url,
+            alt_text=p.name,
+            display_order=len(p.images),
+            is_primary=is_primary or not p.image_url,
+        )
+    )
     record_audit_log(
         db,
         user_id=user.id,
@@ -289,8 +330,40 @@ def upload_product_image(
         ip_address=get_client_ip(request),
     )
     db.commit()
-    db.refresh(p)
-    return _to_product_out(p)
+    loaded = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == p.id)
+    )
+    return _to_product_out(loaded)
+
+
+@router.delete("/{product_id}/images/{image_id}", response_model=ProductOut)
+def delete_product_image(
+    product_id: int,
+    image_id: int,
+    user: User = Depends(require_permission("products:edit")),
+    db: Session = Depends(get_db),
+) -> ProductOut:
+    p = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == product_id)
+    )
+    if not p:
+        raise NotFoundError("Product not found.")
+    img = db.scalar(select(ProductImage).where(ProductImage.id == image_id, ProductImage.product_id == product_id))
+    if not img:
+        raise NotFoundError("Product image not found.")
+    removed_url = img.image_url
+    db.delete(img)
+    db.flush()
+    remaining = [i for i in p.images if i.id != image_id]
+    if p.image_url == removed_url:
+        p.image_url = remaining[0].image_url if remaining else None
+        if remaining:
+            remaining[0].is_primary = True
+    db.commit()
+    loaded = db.scalar(
+        select(Product).options(joinedload(Product.category), joinedload(Product.images)).where(Product.id == p.id)
+    )
+    return _to_product_out(loaded)
 
 
 @router.delete("/{product_id}", response_model=MessageResponse)

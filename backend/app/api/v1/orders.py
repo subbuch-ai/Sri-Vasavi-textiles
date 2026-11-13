@@ -40,16 +40,28 @@ def _to_order_out(o: CustomerOrder) -> CustomerOrderOut:
         order_date=o.order_date,
         expected_delivery_date=o.expected_delivery_date,
         order_type=o.order_type,
+        order_source=o.order_source,
         subtotal=o.subtotal,
         discount_amount=o.discount_amount,
         tax_amount=o.tax_amount,
+        delivery_charge=o.delivery_charge,
         total_amount=o.total_amount,
         advance_amount=o.advance_amount,
         remaining_amount=o.remaining_amount,
         order_status=o.order_status,
         payment_status=o.payment_status,
+        payment_method=o.payment_method,
         converted_sale_id=o.converted_sale_id,
         stock_deducted=o.stock_deducted,
+        stock_reserved=o.stock_reserved,
+        shipping_name=o.shipping_name,
+        shipping_mobile=o.shipping_mobile,
+        shipping_address=o.shipping_address,
+        shipping_city=o.shipping_city,
+        shipping_state=o.shipping_state,
+        shipping_pincode=o.shipping_pincode,
+        cancellation_requested=o.cancellation_requested,
+        cancellation_reason=o.cancellation_reason,
         notes=o.notes,
         created_at=o.created_at,
         items=[
@@ -76,6 +88,8 @@ def list_orders(
     page_size: int = Query(25, ge=1, le=100),
     customer_id: Optional[int] = None,
     order_status: Optional[str] = None,
+    order_source: Optional[str] = None,
+    order_type: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
@@ -90,6 +104,10 @@ def list_orders(
         stmt = stmt.where(CustomerOrder.customer_id == customer_id)
     if order_status:
         stmt = stmt.where(CustomerOrder.order_status == order_status)
+    if order_source:
+        stmt = stmt.where(CustomerOrder.order_source == order_source)
+    if order_type:
+        stmt = stmt.where(CustomerOrder.order_type == order_type)
     if start_date:
         stmt = stmt.where(CustomerOrder.order_date >= start_date)
     if end_date:

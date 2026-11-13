@@ -21,22 +21,34 @@ class CustomerOrder(Base, TimestampMixin):
     order_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     expected_delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     order_type: Mapped[str] = mapped_column(String(20), default="WHOLESALE", nullable=False)
+    order_source: Mapped[str] = mapped_column(String(20), default="ERP", nullable=False, index=True)
 
     subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
     tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    delivery_charge: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     advance_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
     remaining_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
 
     order_status: Mapped[str] = mapped_column(String(30), default="PENDING", nullable=False, index=True)
     payment_status: Mapped[str] = mapped_column(String(20), default="UNPAID", nullable=False, index=True)
+    payment_method: Mapped[str] = mapped_column(String(30), default="CASH", nullable=False)
     converted_sale_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("sales.id", ondelete="SET NULL", use_alter=True, name="fk_order_converted_sale"),
         unique=True,
         nullable=True,
     )
     stock_deducted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stock_reserved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    shipping_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    shipping_mobile: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    shipping_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    shipping_city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    shipping_state: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    shipping_pincode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    cancellation_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cancellation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
@@ -44,6 +56,10 @@ class CustomerOrder(Base, TimestampMixin):
     items: Mapped[List["CustomerOrderItem"]] = relationship(
         "CustomerOrderItem", back_populates="order", cascade="all, delete-orphan"
     )
+    status_history = relationship(
+        "OrderStatusHistory", back_populates="order", cascade="all, delete-orphan", order_by="OrderStatusHistory.created_at"
+    )
+    delivery_detail = relationship("DeliveryDetail", back_populates="order", uselist=False, cascade="all, delete-orphan")
 
 
 class CustomerOrderItem(Base):
@@ -91,6 +107,7 @@ class Sale(Base, TimestampMixin):
     sgst_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
     igst_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
     tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    delivery_charge: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
     round_off: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"), nullable=False)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
 

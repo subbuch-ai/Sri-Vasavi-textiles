@@ -10,7 +10,7 @@ from app.models.inventory import Category, Product
 from app.models.organization import AuditLog
 from app.models.parties import Customer, Supplier
 from app.models.purchase import PurchaseInvoice
-from app.models.sales import Sale, SaleItem, SaleReturn
+from app.models.sales import CustomerOrder, Sale, SaleItem, SaleReturn
 from app.schemas.parties import LedgerEntryOut
 from app.services.export_service import build_customer_statement_report_dict
 
@@ -613,6 +613,60 @@ def generate_report_data(
                     "Outstanding": float(c.outstanding_balance),
                 }
                 for c in customers
+            ],
+        }
+
+    elif report_type == "online_sales":
+        orders = db.scalars(
+            select(CustomerOrder)
+            .options(joinedload(CustomerOrder.customer))
+            .where(
+                CustomerOrder.order_source == "ONLINE",
+                CustomerOrder.order_date >= s_date,
+                CustomerOrder.order_date <= e_date,
+            )
+            .order_by(desc(CustomerOrder.order_date), desc(CustomerOrder.id))
+        ).all()
+        active_orders = [o for o in orders if o.order_status != "CANCELLED"]
+        return {
+            "report_type": report_type,
+            "title": "Online Storefront Orders & Sales Report",
+            "period": f"{s_date} to {e_date}",
+            "summary": {
+                "total_online_orders": len(orders),
+                "active_orders": len(active_orders),
+                "cancelled_orders": sum(1 for o in orders if o.order_status == "CANCELLED"),
+                "gross_order_value": float(_q2(sum(o.total_amount for o in active_orders))),
+                "paid_amount": float(_q2(sum(o.advance_amount for o in active_orders))),
+                "pending_collection": float(_q2(sum(o.remaining_amount for o in active_orders))),
+            },
+            "columns": [
+                "Order No",
+                "Date",
+                "Type",
+                "Customer",
+                "Total",
+                "Paid",
+                "Pending",
+                "Method",
+                "Payment Status",
+                "Order Status",
+            ],
+            "rows": [
+                {
+                    "_order_id": o.id,
+                    "Order No": o.order_number,
+                    "Date": o.order_date.isoformat(),
+                    "Type": o.order_type,
+                    "Customer": o.shipping_name or (o.customer.name if o.customer else "-"),
+                    "Total": float(o.total_amount),
+                    "Paid": float(o.advance_amount),
+                    "Pending": float(o.remaining_amount),
+                    "Method": o.payment_method,
+                    "Payment Status": o.payment_status,
+                    "Order Status": o.order_status,
+                }
+                for o in orders
             ],
         }
 

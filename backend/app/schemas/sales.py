@@ -31,7 +31,7 @@ class CustomerOrderUpdate(BaseModel):
     expected_delivery_date: Optional[date] = None
     order_status: Optional[str] = Field(
         default=None,
-        pattern="^(PENDING|CONFIRMED|PROCESSING|READY_FOR_DELIVERY|DISPATCHED|DELIVERED|CANCELLED)$",
+        pattern="^(ORDER_PLACED|PENDING|CONFIRMED|PROCESSING|READY_FOR_DISPATCH|READY_FOR_DELIVERY|SHIPPED|DISPATCHED|DELIVERED|CANCELLED)$",
     )
     notes: Optional[str] = None
     items: Optional[List[OrderItemCreate]] = None
@@ -63,16 +63,28 @@ class CustomerOrderOut(BaseModel):
     order_date: date
     expected_delivery_date: Optional[date] = None
     order_type: str
+    order_source: str = "ERP"
     subtotal: Decimal
     discount_amount: Decimal
     tax_amount: Decimal
+    delivery_charge: Decimal = Decimal("0.00")
     total_amount: Decimal
     advance_amount: Decimal
     remaining_amount: Decimal
     order_status: str
     payment_status: str
+    payment_method: str = "CASH"
     converted_sale_id: Optional[int] = None
     stock_deducted: bool
+    stock_reserved: bool = False
+    shipping_name: Optional[str] = None
+    shipping_mobile: Optional[str] = None
+    shipping_address: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_pincode: Optional[str] = None
+    cancellation_requested: bool = False
+    cancellation_reason: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime
     items: List[CustomerOrderItemOut] = []
@@ -93,6 +105,7 @@ class SaleCreate(BaseModel):
     sale_type: str = Field(default="RETAIL", pattern="^(WHOLESALE|RETAIL)$")
     sale_date: date
     discount_amount: Decimal = Field(default=Decimal("0.00"), ge=0)
+    delivery_charge: Decimal = Field(default=Decimal("0.00"), ge=0)
     is_interstate: bool = False
     paid_amount: Optional[Decimal] = Field(default=None, ge=0)
     payment_mode: str = Field(default="CASH")
@@ -146,6 +159,7 @@ class SaleOut(BaseModel):
     sgst_amount: Decimal
     igst_amount: Decimal
     tax_amount: Decimal
+    delivery_charge: Decimal = Decimal("0.00")
     round_off: Decimal
     total_amount: Decimal
     total_cogs: Decimal

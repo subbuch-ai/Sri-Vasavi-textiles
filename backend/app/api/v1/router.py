@@ -18,6 +18,8 @@ from app.api.v1 import (
     reports,
     sales,
     settings,
+    storefront,
+    storefront_admin,
     suppliers,
     users,
 )
@@ -42,3 +44,5 @@ api_router.include_router(payments.router)
 api_router.include_router(expenses.router)
 api_router.include_router(employees.router)
 api_router.include_router(reports.router)
+api_router.include_router(storefront.router)
+api_router.include_router(storefront_admin.router)

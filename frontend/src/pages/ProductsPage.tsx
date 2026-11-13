@@ -28,6 +28,11 @@ interface ProductForm {
   barcode?: string;
   initial_stock: number;
   min_stock_level: number;
+  wholesale_min_qty: number;
+  is_storefront_visible: boolean;
+  is_featured: boolean;
+  is_new_arrival: boolean;
+  is_best_seller: boolean;
 }
 
 export const ProductsPage: React.FC = () => {
@@ -84,6 +89,11 @@ export const ProductsPage: React.FC = () => {
       gst_rate: 5,
       initial_stock: 0,
       min_stock_level: 10,
+      wholesale_min_qty: 5,
+      is_storefront_visible: true,
+      is_featured: false,
+      is_new_arrival: false,
+      is_best_seller: false,
     });
     setProdModalOpen(true);
   };
@@ -109,6 +119,11 @@ export const ProductsPage: React.FC = () => {
       barcode: p.barcode || "",
       initial_stock: Number(p.current_stock),
       min_stock_level: Number(p.min_stock_level),
+      wholesale_min_qty: Number(p.wholesale_min_qty ?? 5),
+      is_storefront_visible: p.is_storefront_visible ?? true,
+      is_featured: p.is_featured ?? false,
+      is_new_arrival: p.is_new_arrival ?? false,
+      is_best_seller: p.is_best_seller ?? false,
     });
     setProdModalOpen(true);
   };
@@ -132,6 +147,11 @@ export const ProductsPage: React.FC = () => {
         gst_rate: Number(data.gst_rate),
         min_stock_level: Number(data.min_stock_level),
         initial_stock: Number(data.initial_stock || 0),
+        wholesale_min_qty: Number(data.wholesale_min_qty || 5),
+        is_storefront_visible: Boolean(data.is_storefront_visible),
+        is_featured: Boolean(data.is_featured),
+        is_new_arrival: Boolean(data.is_new_arrival),
+        is_best_seller: Boolean(data.is_best_seller),
         barcode: data.barcode?.trim() || null,
         product_code: data.product_code?.trim() || undefined,
       };
@@ -280,7 +300,17 @@ export const ProductsPage: React.FC = () => {
                       <span className={`text-xs font-bold ${p.is_low_stock ? "text-rose-600" : "text-slate-800"}`}>
                         {formatQty(p.current_stock)} {p.unit}
                       </span>
-                      {p.is_low_stock && <div className="mt-0.5"><StatusBadge status="LOW_STOCK" /></div>}
+                      {Number(p.reserved_stock || 0) > 0 && (
+                        <p className="text-[11px] text-amber-700 font-medium">
+                          Reserved: {formatQty(p.reserved_stock || 0)} • Free: {formatQty(p.available_stock ?? p.current_stock)}
+                        </p>
+                      )}
+                      <div className="mt-0.5 flex justify-end gap-1 flex-wrap">
+                        {p.is_storefront_visible && (
+                          <span className="px-1.5 py-0.5 rounded bg-navy-50 text-navy-700 text-[10px] font-semibold">Online</span>
+                        )}
+                        {p.is_low_stock && <StatusBadge status="LOW_STOCK" />}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-1">
@@ -425,6 +455,25 @@ export const ProductsPage: React.FC = () => {
           <div>
             <label className="label-text">Description</label>
             <textarea rows={2} className="input-field md:h-11" {...register("description")} />
+          </div>
+
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 grid grid-cols-2 sm:grid-cols-5 gap-3 items-center text-xs">
+            <div>
+              <label className="label-text">Wholesale MOQ</label>
+              <input type="number" step="1" min={1} className="input-field" {...stripLeadingZeroProps} {...register("wholesale_min_qty")} />
+            </div>
+            <label className="flex items-center gap-2 font-semibold text-navy-900 cursor-pointer pt-4">
+              <input type="checkbox" {...register("is_storefront_visible")} /> Website Visible
+            </label>
+            <label className="flex items-center gap-2 font-semibold text-navy-900 cursor-pointer pt-4">
+              <input type="checkbox" {...register("is_featured")} /> Featured
+            </label>
+            <label className="flex items-center gap-2 font-semibold text-navy-900 cursor-pointer pt-4">
+              <input type="checkbox" {...register("is_new_arrival")} /> New Arrival
+            </label>
+            <label className="flex items-center gap-2 font-semibold text-navy-900 cursor-pointer pt-4">
+              <input type="checkbox" {...register("is_best_seller")} /> Best Seller
+            </label>
           </div>
 
           <div className="flex justify-end gap-2 pt-2 md:pt-1">

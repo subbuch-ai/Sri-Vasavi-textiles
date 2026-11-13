@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ArrowRightCircle, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowRightCircle, CheckCircle2, Plus, Search, Trash2, Truck, XCircle } from "lucide-react";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
 import { NumberInput } from "../components/common/NumberInput";
@@ -10,11 +10,12 @@ import { Customer, CustomerOrder, PaginatedResponse, Product } from "../types/er
 import { formatDate, formatINR, todayISO } from "../utils/formatters";
 
 const ORDER_STATUSES = [
+  "ORDER_PLACED",
   "PENDING",
   "CONFIRMED",
   "PROCESSING",
-  "READY_FOR_DELIVERY",
-  "DISPATCHED",
+  "READY_FOR_DISPATCH",
+  "SHIPPED",
   "DELIVERED",
   "CANCELLED",
 ];
@@ -32,8 +33,15 @@ export const OrdersPage: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const [trackTarget, setTrackTarget] = useState<CustomerOrder | null>(null);
+  const [courierName, setCourierName] = useState("");
+  const [trackingNo, setTrackingNo] = useState("");
+  const [trackingUrl, setTrackingUrl] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [customerId, setCustomerId] = useState<number>(0);
@@ -49,6 +57,8 @@ export const OrdersPage: React.FC = () => {
     try {
       const params = new URLSearchParams({ page_size: "50" });
       if (statusFilter) params.set("order_status", statusFilter);
+      if (sourceFilter) params.set("order_source", sourceFilter);
+      if (typeFilter) params.set("order_type", typeFilter);
       if (search.trim()) params.set("search", search.trim());
       const [oRes, cRes, pRes] = await Promise.all([
         api.get<PaginatedResponse<CustomerOrder>>(`/orders?${params.toString()}`),
@@ -62,7 +72,7 @@ export const OrdersPage: React.FC = () => {
     } catch (err) {
       setError(extractErrorMessage(err));
     }
-  }, [statusFilter, search]);
+  }, [statusFilter, sourceFilter, typeFilter, search]);
 
   useEffect(() => {
     loadData();
@@ -158,6 +168,50 @@ export const OrdersPage: React.FC = () => {
     }
   };
 
+  const handleVerifyPayment = async (order: CustomerOrder) => {
+    const ref = window.prompt(`Enter UPI / Bank Transaction Reference for ${order.order_number}:`, "UPI-VERIFIED-001");
+    if (!ref) return;
+    setError(null);
+    try {
+      await api.post(`/storefront-admin/orders/${order.id}/verify-payment`, {
+        order_id: order.id,
+        transaction_reference: ref,
+      });
+      await loadData();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    }
+  };
+
+  const handleSaveTracking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackTarget) return;
+    setError(null);
+    try {
+      await api.patch(`/storefront-admin/orders/${trackTarget.id}/delivery`, {
+        courier_name: courierName || null,
+        tracking_number: trackingNo || null,
+        tracking_url: trackingUrl || null,
+      });
+      setTrackTarget(null);
+      await loadData();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    }
+  };
+
+  const handleCancelRefund = async (order: CustomerOrder) => {
+    const reason = window.prompt(`Cancel Order ${order.order_number} & release stock / record refund? Reason:`, "Cancelled by Store Admin");
+    if (!reason) return;
+    setError(null);
+    try {
+      await api.post(`/storefront-admin/orders/${order.id}/cancel-refund`, { reason });
+      await loadData();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    }
+  };
+
   const estimatedTotal = lines.reduce(
     (sum, l) => sum + l.quantity * l.unit_price * (1 + l.gst_rate / 100),
     0
@@ -184,6 +238,16 @@ export const OrdersPage: React.FC = () => {
           <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by Order ID (e.g. SVT-ORD-)..." className="input-field pl-9" />
         </div>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="input-field w-auto">
+          <option value="">All Channels (ERP + Online)</option>
+          <option value="ONLINE">Online Storefront Only</option>
+          <option value="ERP">Internal ERP Only</option>
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input-field w-auto">
+          <option value="">All Customer Types</option>
+          <option value="RETAIL">Retail Orders</option>
+          <option value="WHOLESALE">Wholesale Orders</option>
+        </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input-field w-auto">
           <option value="">All Statuses</option>
           {ORDER_STATUSES.map((st) => <option key={st} value={st}>{st.replace(/_/g, " ")}</option>)}
@@ -212,9 +276,19 @@ export const OrdersPage: React.FC = () => {
                   <tr key={o.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <p className="font-semibold text-xs text-navy-900">{o.order_number}</p>
-                      <StatusBadge status={o.order_type} />
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <StatusBadge status={o.order_type} />
+                        {o.order_source === "ONLINE" && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">ONLINE</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-xs font-medium">{o.customer_name}</td>
+                    <td className="px-4 py-3 text-xs font-medium">
+                      <p>{o.customer_name || o.shipping_name}</p>
+                      {o.order_source === "ONLINE" && o.shipping_city && (
+                        <p className="text-[11px] text-slate-500">{o.shipping_city} • {o.payment_method}</p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
                       <p>Ord: {formatDate(o.order_date)}</p>
                       <p>Due: {formatDate(o.expected_delivery_date)}</p>
@@ -225,7 +299,7 @@ export const OrdersPage: React.FC = () => {
                       <p className="text-amber-700">Rem: {formatINR(o.remaining_amount)}</p>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {hasPermission("orders:edit") && !o.converted_sale_id ? (
+                      {hasPermission("orders:edit") && o.order_status !== "CANCELLED" ? (
                         <select
                           value={o.order_status}
                           onChange={(e) => handleStatusChange(o.id, e.target.value)}
@@ -238,18 +312,54 @@ export const OrdersPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {o.converted_sale_id ? (
-                        <span className="text-xs font-semibold text-emerald-700">Invoiced (#{o.converted_sale_id})</span>
-                      ) : (
-                        hasPermission("orders:convert") && o.order_status !== "CANCELLED" && (
+                      <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                        {o.order_source === "ONLINE" && o.payment_status !== "PAID" && o.order_status !== "CANCELLED" && hasPermission("payments:create") && (
                           <button
-                            onClick={() => handleConvertToSale(o)}
-                            className="inline-flex items-center gap-1 rounded bg-navy-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-navy-800"
+                            onClick={() => handleVerifyPayment(o)}
+                            className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                            title="Verify Online/UPI/Bank Payment"
                           >
-                            <ArrowRightCircle className="h-3.5 w-3.5" /> Convert to Sale
+                            <CheckCircle2 className="h-3 w-3" /> Verify Pay
                           </button>
-                        )
-                      )}
+                        )}
+                        {o.order_source === "ONLINE" && o.order_status !== "CANCELLED" && hasPermission("orders:edit") && (
+                          <button
+                            onClick={() => {
+                              setTrackTarget(o);
+                              setCourierName("");
+                              setTrackingNo("");
+                              setTrackingUrl("");
+                            }}
+                            className="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-[11px] font-semibold text-navy-900 hover:bg-slate-100"
+                            title="Update Shipping / Courier"
+                          >
+                            <Truck className="h-3 w-3" /> Dispatch
+                          </button>
+                        )}
+                        {o.converted_sale_id ? (
+                          <span className="text-xs font-semibold text-emerald-700">Invoiced (#{o.converted_sale_id})</span>
+                        ) : (
+                          <>
+                            {o.order_source === "ONLINE" && o.order_status !== "CANCELLED" && hasPermission("orders:edit") && (
+                              <button
+                                onClick={() => handleCancelRefund(o)}
+                                className="inline-flex items-center gap-1 rounded border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
+                                title="Cancel & Release Stock / Refund"
+                              >
+                                <XCircle className="h-3 w-3" /> Cancel
+                              </button>
+                            )}
+                            {hasPermission("orders:convert") && o.order_status !== "CANCELLED" && (
+                              <button
+                                onClick={() => handleConvertToSale(o)}
+                                className="inline-flex items-center gap-1 rounded bg-navy-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-navy-800"
+                              >
+                                <ArrowRightCircle className="h-3.5 w-3.5" /> Convert to Sale
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -348,6 +458,27 @@ export const OrdersPage: React.FC = () => {
               <button type="button" onClick={() => setCreateOpen(false)} className="btn-secondary">Cancel</button>
               <button type="submit" className="btn-primary">Create Order</button>
             </div>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={Boolean(trackTarget)} onClose={() => setTrackTarget(null)} title={`Shipping & Tracking — ${trackTarget?.order_number || ""}`} maxWidthClass="max-w-md">
+        <form onSubmit={handleSaveTracking} className="space-y-3">
+          <div>
+            <label className="label-text">Courier / Transport Name</label>
+            <input required className="input-field" value={courierName} onChange={(e) => setCourierName(e.target.value)} placeholder="e.g. BlueDart / DTDC / ST Courier" />
+          </div>
+          <div>
+            <label className="label-text">AWB / Tracking Number</label>
+            <input required className="input-field" value={trackingNo} onChange={(e) => setTrackingNo(e.target.value)} placeholder="Tracking number" />
+          </div>
+          <div>
+            <label className="label-text">Tracking URL (Optional)</label>
+            <input className="input-field" value={trackingUrl} onChange={(e) => setTrackingUrl(e.target.value)} placeholder="https://..." />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setTrackTarget(null)} className="btn-secondary">Cancel</button>
+            <button type="submit" className="btn-primary">Update & Mark Shipped</button>
           </div>
         </form>
       </Modal>

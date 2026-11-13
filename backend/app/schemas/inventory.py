@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -56,6 +56,12 @@ class ProductCreate(BaseModel):
     min_stock_level: Decimal = Field(default=Decimal("10.000"), ge=0)
     image_url: Optional[str] = None
     is_active: bool = True
+    is_storefront_visible: bool = True
+    is_featured: bool = False
+    is_new_arrival: bool = False
+    is_best_seller: bool = False
+    wholesale_min_qty: Decimal = Field(default=Decimal("5.000"), ge=1)
+    specifications: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def validate_wholesale_vs_retail(self) -> "ProductCreate":
@@ -84,6 +90,23 @@ class ProductUpdate(BaseModel):
     min_stock_level: Optional[Decimal] = Field(default=None, ge=0)
     image_url: Optional[str] = None
     is_active: Optional[bool] = None
+    is_storefront_visible: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    is_new_arrival: Optional[bool] = None
+    is_best_seller: Optional[bool] = None
+    wholesale_min_qty: Optional[Decimal] = Field(default=None, ge=1)
+    specifications: Optional[Dict[str, Any]] = None
+
+
+class ProductImageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product_id: int
+    image_url: str
+    alt_text: Optional[str] = None
+    display_order: int
+    is_primary: bool
 
 
 class ProductOut(BaseModel):
@@ -107,9 +130,18 @@ class ProductOut(BaseModel):
     gst_rate: Decimal
     barcode: Optional[str] = None
     current_stock: Decimal
+    reserved_stock: Decimal = Decimal("0.000")
+    available_stock: Decimal = Decimal("0.000")
     min_stock_level: Decimal
     image_url: Optional[str] = None
+    images: List[ProductImageOut] = []
     is_active: bool
+    is_storefront_visible: bool = True
+    is_featured: bool = False
+    is_new_arrival: bool = False
+    is_best_seller: bool = False
+    wholesale_min_qty: Decimal = Decimal("5.000")
+    specifications: Optional[Dict[str, Any]] = None
     is_low_stock: bool = False
     stock_value: Decimal = Decimal("0.00")
     created_at: datetime

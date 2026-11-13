@@ -437,4 +437,3 @@ def create_purchase_return_endpoint(
         total_amount=loaded.total_amount,
         created_at=loaded.created_at,
     )
-

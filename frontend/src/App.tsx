@@ -20,6 +20,22 @@ import { EmployeesPage } from "./pages/EmployeesPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StorefrontAdminPage } from "./pages/StorefrontAdminPage";
+import { StoreAuthProvider } from "./context/StoreAuthContext";
+import { StoreLayout } from "./components/store/StoreLayout";
+import { StoreHomePage } from "./pages/store/StoreHomePage";
+import { StoreCatalogPage } from "./pages/store/StoreCatalogPage";
+import { StoreProductPage } from "./pages/store/StoreProductPage";
+import {
+  StoreForgotPasswordPage,
+  StoreLoginPage,
+  StoreProfilePage,
+  StoreRegisterPage,
+} from "./pages/store/StoreAuthPages";
+import { StoreCartPage } from "./pages/store/StoreCartPage";
+import { StoreCheckoutPage } from "./pages/store/StoreCheckoutPage";
+import { StoreOrdersPage } from "./pages/store/StoreOrdersPage";
+import { StoreWholesalePage } from "./pages/store/StoreWholesalePage";
 
 export function App() {
   return (
@@ -149,6 +165,36 @@ export function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="storefront-admin"
+              element={
+                <ProtectedRoute anyPermissions={["storefront:view", "storefront:manage"]}>
+                  <StorefrontAdminPage />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          {/* Customer-Facing E-Commerce Storefront (/shop/*) */}
+          <Route
+            path="/shop"
+            element={
+              <StoreAuthProvider>
+                <StoreLayout />
+              </StoreAuthProvider>
+            }
+          >
+            <Route index element={<StoreHomePage />} />
+            <Route path="catalog" element={<StoreCatalogPage />} />
+            <Route path="product/:id" element={<StoreProductPage />} />
+            <Route path="cart" element={<StoreCartPage />} />
+            <Route path="checkout" element={<StoreCheckoutPage />} />
+            <Route path="orders" element={<StoreOrdersPage />} />
+            <Route path="wholesale" element={<StoreWholesalePage />} />
+            <Route path="login" element={<StoreLoginPage />} />
+            <Route path="register" element={<StoreRegisterPage />} />
+            <Route path="forgot-password" element={<StoreForgotPasswordPage />} />
+            <Route path="profile" element={<StoreProfilePage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

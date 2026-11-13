@@ -28,6 +28,7 @@ const REPORT_CATALOG: ReportCatalogItem[] = [
   { key: "yearly_sales", label: "Yearly Sales Report", group: "Sales", description: "Annual sales totals and net collection performance." },
   { key: "wholesale_sales", label: "Wholesale Sales Report", group: "Sales", description: "B2B wholesale invoices, balances, and GST summary." },
   { key: "retail_sales", label: "Retail Sales Report", group: "Sales", description: "Walk-in retail invoices and daily billing totals." },
+  { key: "online_sales", label: "Online Storefront Sales", group: "Sales", description: "E-commerce website orders, payment modes, and online collections." },
   { key: "purchase_report", label: "Purchase Report", group: "Purchase & Inventory", description: "Supplier purchase bills, taxes, transport, and dues." },
   { key: "product_performance", label: "Product Performance", group: "Purchase & Inventory", description: "Units sold, revenue, COGS, and gross margin per item.", supportsCategory: true },
   { key: "inventory_report", label: "Inventory Valuation", group: "Purchase & Inventory", description: "Current stock levels and valuation at cost price.", supportsCategory: true },

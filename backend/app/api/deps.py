@@ -10,6 +10,7 @@ from app.core.exceptions import AuthenticationError, PermissionDeniedError
 from app.core.rbac import ALL_PERMISSION_CODES, ROLE_OWNER
 from app.core.security import decode_token
 from app.models.auth import Role, RolePermission, User, UserPermission
+from app.models.storefront import CustomerAccount
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -57,6 +58,8 @@ def get_current_user(
         raise AuthenticationError("Authentication credentials were not provided.")
 
     payload = decode_token(credentials.credentials, expected_type="access")
+    if payload.get("scope", "erp") != "erp":
+        raise AuthenticationError("Customer storefront tokens cannot access internal ERP endpoints.")
     try:
         user_id = int(payload["sub"])
     except (TypeError, ValueError) as exc:
@@ -125,4 +128,56 @@ def get_client_ip(request: Request) -> str | None:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else None
+
+
+def get_current_customer(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> CustomerAccount:
+    """Validate Bearer JWT token scoped to storefront customers (strictly isolated from ERP staff)."""
+    if credentials is None or not credentials.credentials:
+        raise AuthenticationError("Customer authentication credentials were not provided.")
+
+    payload = decode_token(credentials.credentials, expected_type="access")
+    if payload.get("scope") != "customer":
+        raise AuthenticationError("This endpoint requires a storefront customer account token.")
+    try:
+        account_id = int(payload["sub"])
+    except (TypeError, ValueError) as exc:
+        raise AuthenticationError("Invalid customer identifier in token.") from exc
+
+    account = db.scalar(
+        select(CustomerAccount)
+        .options(joinedload(CustomerAccount.customer))
+        .where(CustomerAccount.id == account_id)
+    )
+    if not account or not account.customer:
+        raise AuthenticationError("Customer account not found.")
+    if not account.is_active or not account.customer.is_active:
+        raise AuthenticationError("This customer account has been deactivated.")
+    return account
+
+
+def get_optional_customer(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> CustomerAccount | None:
+    """Return active storefront CustomerAccount when a valid customer Bearer token is supplied, else None."""
+    if credentials is None or not credentials.credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials, expected_type="access")
+        if payload.get("scope") != "customer":
+            return None
+        account_id = int(payload["sub"])
+        account = db.scalar(
+            select(CustomerAccount)
+            .options(joinedload(CustomerAccount.customer))
+            .where(CustomerAccount.id == account_id)
+        )
+        if not account or not account.is_active or not account.customer or not account.customer.is_active:
+            return None
+        return account
+    except Exception:
+        return None
 

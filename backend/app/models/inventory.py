@@ -3,10 +3,14 @@ from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON
 
 from app.core.database import Base
 from app.models.base import TimestampMixin
+
+JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
 class Category(Base, TimestampMixin):
@@ -55,9 +59,16 @@ class Product(Base, TimestampMixin):
 
     barcode: Mapped[Optional[str]] = mapped_column(String(80), unique=True, nullable=True, index=True)
     current_stock: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0.000"), nullable=False)
+    reserved_stock: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0.000"), nullable=False)
     min_stock_level: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("10.000"), nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_storefront_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_featured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_new_arrival: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_best_seller: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    wholesale_min_qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("5.000"), nullable=False)
+    specifications: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
 
     category: Mapped["Category"] = relationship("Category", back_populates="products")
     branch_stocks: Mapped[List["BranchStock"]] = relationship(
@@ -66,6 +77,17 @@ class Product(Base, TimestampMixin):
     stock_transactions: Mapped[List["StockTransaction"]] = relationship(
         "StockTransaction", back_populates="product"
     )
+    images = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ProductImage.display_order",
+    )
+
+    @property
+    def available_stock(self) -> Decimal:
+        avail = Decimal(self.current_stock) - Decimal(self.reserved_stock)
+        return avail if avail > Decimal("0.000") else Decimal("0.000")
 
 
 class BranchStock(Base):

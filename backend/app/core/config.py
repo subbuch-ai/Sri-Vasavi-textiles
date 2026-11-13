@@ -59,6 +59,21 @@ class Settings(BaseSettings):
             path = BASE_DIR / path
         return path
 
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        """
+        Normalize standard PostgreSQL URLs (e.g. from Supabase / AWS RDS)
+        like postgres:// or postgresql:// to postgresql+psycopg://
+        so SQLAlchemy 2.0 with psycopg3 connects cleanly.
+        """
+        val = value.strip()
+        if val.startswith("postgres://"):
+            return "postgresql+psycopg://" + val[len("postgres://"):]
+        if val.startswith("postgresql://") and not val.startswith("postgresql+"):
+            return "postgresql+psycopg://" + val[len("postgresql://"):]
+        return val
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret(cls, value: str) -> str:

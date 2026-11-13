@@ -115,12 +115,13 @@ export const Sidebar: React.FC<{ mobileOpen: boolean; onClose: () => void }> = (
 
       <div className="p-4 border-t border-navy-800 text-xs text-slate-400 space-y-2.5">
         <a
-          href="/shop"
+          href="http://localhost:5174"
           target="_blank"
           rel="noreferrer"
           className="flex items-center justify-between px-3 py-2 rounded-lg bg-navy-800 hover:bg-navy-700 text-gold-300 font-semibold transition"
+          title="Open Customer Shopping Website (Port 5174)"
         >
-          <span>Customer Storefront</span>
+          <span>Customer Website</span>
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
         <div>

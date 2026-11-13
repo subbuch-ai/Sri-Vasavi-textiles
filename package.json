@@ -1,0 +1,13 @@
+{
+  "name": "sri-vasavi-textiles-workspace",
+  "private": true,
+  "scripts": {
+    "dev:erp": "cd frontend && npm run dev -- --host 127.0.0.1 --port 5173",
+    "dev:customer": "cd customer-website && npm run dev -- --host 127.0.0.1 --port 5174",
+    "dev:backend": "cd backend && .venv\\Scripts\\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000",
+    "build:erp": "cd frontend && npm run build",
+    "build:customer": "cd customer-website && npm run build",
+    "build:all": "npm run build:erp && npm run build:customer"
+  }
+}
+

@@ -470,6 +470,37 @@ export const StoreCheckoutPage: React.FC = () => {
                 </button>
               )}
             </div>
+
+            {/* Instant UPI QR Code & App Link Preview while selecting UPI */}
+            {paymentMethod === "UPI" && config?.upi_id && (() => {
+              const amount = cart?.total_amount || 0;
+              const upiUri = `upi://pay?pa=${encodeURIComponent(config.upi_id)}&pn=${encodeURIComponent(config.business_name || "Sri Vasavi Textiles")}&am=${amount}&cu=INR&tn=${encodeURIComponent("Sri Vasavi Textiles Order")}`;
+              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUri)}`;
+
+              return (
+                <div className="mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 flex flex-col sm:flex-row items-center gap-4">
+                  <img
+                    src={qrUrl}
+                    alt="UPI QR Code"
+                    className="w-36 h-36 rounded-xl border border-slate-200 bg-white p-1 shadow-sm shrink-0"
+                  />
+                  <div className="space-y-1.5 text-xs text-slate-700">
+                    <p className="font-extrabold text-navy-900 text-sm flex items-center gap-1.5">
+                      <QrCode className="h-4 w-4 text-emerald-600" /> Instant UPI QR Code
+                    </p>
+                    <p>Scan with <b>Google Pay, PhonePe, Paytm, or BHIM</b></p>
+                    <p>UPI ID: <span className="font-mono font-extrabold text-navy-900 bg-white px-2 py-0.5 rounded border border-emerald-300 select-all">{config.upi_id}</span></p>
+                    <p className="text-emerald-800 font-bold">Total Amount: {formatINR(amount)}</p>
+                    <a
+                      href={upiUri}
+                      className="inline-flex sm:hidden items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow mt-1"
+                    >
+                      <Smartphone className="h-4 w-4" /> Tap to Open GPay / PhonePe
+                    </a>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

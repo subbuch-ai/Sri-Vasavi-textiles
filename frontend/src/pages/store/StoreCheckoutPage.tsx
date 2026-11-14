@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Banknote, CheckCircle2, CreditCard, Landmark, Lock, QrCode, ShieldCheck } from "lucide-react";
+import { Banknote, CheckCircle2, CreditCard, ExternalLink, Landmark, Lock, QrCode, ShieldCheck, Smartphone } from "lucide-react";
 import { useStoreAuth } from "../../context/StoreAuthContext";
 import { extractErrorMessage } from "../../services/api";
 import { storeApi } from "../../services/storeApi";
@@ -73,7 +73,7 @@ export const StoreCheckoutPage: React.FC = () => {
     return (
       <div className="max-w-md mx-auto py-16 text-center space-y-3">
         <p className="text-sm font-bold text-navy-900">Please sign in to complete checkout.</p>
-        <Link to="/shop/login" className="inline-block px-5 py-2.5 rounded-xl bg-navy-900 text-white text-xs font-bold">
+        <Link to="/login" className="inline-block px-5 py-2.5 rounded-xl bg-navy-900 text-white text-xs font-bold">
           Login
         </Link>
       </div>
@@ -221,34 +221,91 @@ export const StoreCheckoutPage: React.FC = () => {
 
           {(placedOrder.payment_method === "UPI" || placedOrder.payment_method === "BANK_TRANSFER") &&
             placedOrder.payment_status !== "PAID" && (
-              <form onSubmit={handleManualReferenceSubmit} className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3">
-                <p className="text-xs font-bold text-navy-900">
-                  Complete Your {placedOrder.payment_method.replace("_", " ")} Transfer
-                </p>
-                {placedOrder.payment_method === "UPI" && config?.upi_id && (
-                  <p className="text-xs text-slate-700">
-                    Pay <span className="font-bold">{formatINR(placedOrder.total_amount)}</span> to UPI ID:{" "}
-                    <span className="font-extrabold text-navy-900 select-all">{config.upi_id}</span>
+              <form onSubmit={handleManualReferenceSubmit} className="rounded-2xl bg-amber-50 border border-amber-200 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-extrabold text-navy-900">
+                    Complete Your {placedOrder.payment_method.replace("_", " ")} Payment
                   </p>
-                )}
+                  <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                    Awaiting Payment
+                  </span>
+                </div>
+
+                {placedOrder.payment_method === "UPI" && config?.upi_id && (() => {
+                  const upiUri = `upi://pay?pa=${encodeURIComponent(config.upi_id)}&pn=${encodeURIComponent(config.business_name || "Sri Vasavi Textiles")}&am=${placedOrder.total_amount}&cu=INR&tn=${encodeURIComponent(`Order ${placedOrder.order_number}`)}`;
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUri)}`;
+
+                  return (
+                    <div className="space-y-4 pt-1">
+                      {/* Mobile One-Click UPI Intent Button */}
+                      <a
+                        href={upiUri}
+                        className="flex items-center justify-center gap-2.5 w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm shadow-md transition transform active:scale-95"
+                      >
+                        <Smartphone className="h-5 w-5" />
+                        <span>Open GPay / PhonePe / Paytm to Pay {formatINR(placedOrder.total_amount)}</span>
+                        <ExternalLink className="h-4 w-4 opacity-80" />
+                      </a>
+
+                      <div className="text-center">
+                        <p className="text-[11px] text-slate-500 font-semibold">— OR SCAN QR CODE TO PAY —</p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-2xl border border-amber-200">
+                        <img
+                          src={qrUrl}
+                          alt="Scan UPI QR Code"
+                          className="w-36 h-36 rounded-xl border border-slate-200 p-1 shadow-sm shrink-0"
+                        />
+                        <div className="space-y-1.5 text-xs text-slate-700">
+                          <p className="font-bold text-navy-900 text-sm">Scan with any UPI App</p>
+                          <p>1. Open Google Pay, PhonePe, Paytm, or BHIM.</p>
+                          <p>2. Scan this QR code or pay to UPI ID:</p>
+                          <p className="font-mono font-extrabold text-navy-900 bg-slate-100 px-2 py-1 rounded inline-block select-all">
+                            {config.upi_id}
+                          </p>
+                          <p className="text-slate-500 text-[11px]">Exact Amount: {formatINR(placedOrder.total_amount)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {placedOrder.payment_method === "BANK_TRANSFER" && config?.bank_details_text && (
-                  <p className="text-xs text-slate-700 whitespace-pre-line">{config.bank_details_text}</p>
+                  <div className="bg-white p-4 rounded-2xl border border-amber-200 space-y-2">
+                    <p className="font-bold text-navy-900 text-xs">Transfer via IMPS / NEFT / RTGS:</p>
+                    <p className="text-xs text-slate-700 font-mono whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      {config.bank_details_text}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-600">
+                      Amount to transfer: <span className="font-extrabold text-navy-900">{formatINR(placedOrder.total_amount)}</span>
+                    </p>
+                  </div>
                 )}
-                <div className="flex gap-2">
-                  <input
-                    required
-                    value={manualRef}
-                    onChange={(e) => setManualRef(e.target.value)}
-                    placeholder="Enter UTR / UPI Transaction Reference"
-                    className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
-                  />
-                  <button
-                    type="submit"
-                    disabled={submittingRef}
-                    className="px-4 py-2 rounded-xl bg-navy-900 text-white text-xs font-bold"
-                  >
-                    {submittingRef ? "Verifying..." : "Submit Reference"}
-                  </button>
+
+                <div className="pt-2 border-t border-amber-200 space-y-2">
+                  <label className="block text-xs font-bold text-navy-900">
+                    Step 2: Enter UPI / Bank Reference (UTR Number)
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    After completing payment in your UPI or Bank app, enter the 12-digit UTR / Reference ID below:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      required
+                      value={manualRef}
+                      onChange={(e) => setManualRef(e.target.value)}
+                      placeholder="e.g. 412345678901 (12-digit UTR)"
+                      className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono"
+                    />
+                    <button
+                      type="submit"
+                      disabled={submittingRef}
+                      className="px-5 py-2.5 rounded-xl bg-navy-900 hover:bg-navy-800 text-white text-xs font-bold shadow transition"
+                    >
+                      {submittingRef ? "Verifying..." : "Confirm Payment"}
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
@@ -256,13 +313,13 @@ export const StoreCheckoutPage: React.FC = () => {
           <div className="flex flex-wrap gap-3 pt-2">
             <button
               type="button"
-              onClick={() => navigate("/shop/orders")}
+              onClick={() => navigate("/orders")}
               className="px-5 py-2.5 rounded-xl bg-navy-900 text-white text-xs font-bold"
             >
               Track My Orders
             </button>
             <Link
-              to="/shop/catalog"
+              to="/catalog"
               className="px-5 py-2.5 rounded-xl border border-slate-300 text-navy-900 text-xs font-bold"
             >
               Continue Shopping

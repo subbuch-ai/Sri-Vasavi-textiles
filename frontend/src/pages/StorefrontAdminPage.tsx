@@ -33,7 +33,7 @@ interface AdminSummary {
 }
 
 export const StorefrontAdminPage: React.FC = () => {
-  const [tab, setTab] = useState<"SETTINGS" | "WHOLESALE" | "ENQUIRIES" | "BANNERS" | "PROMOS">("WHOLESALE");
+  const [tab, setTab] = useState<"SETTINGS" | "WHOLESALE" | "ENQUIRIES" | "BANNERS" | "PROMOS">("SETTINGS");
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [config, setConfig] = useState<StorefrontConfigAdmin | null>(null);
   const [banners, setBanners] = useState<StoreBanner[]>([]);
@@ -304,11 +304,11 @@ export const StorefrontAdminPage: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-xs font-bold">
         {[
+          { key: "SETTINGS", label: "Store Details & Online Payments (UPI / Bank)", icon: Settings },
           { key: "WHOLESALE", label: "Wholesale Approvals", icon: Building2 },
           { key: "ENQUIRIES", label: "Bulk Enquiries", icon: MessageSquare },
           { key: "BANNERS", label: "Homepage Banners", icon: Sparkles },
           { key: "PROMOS", label: "Promo Codes & Offers", icon: BadgePercent },
-          { key: "SETTINGS", label: "Payments, Delivery & Notifications", icon: Settings },
         ].map((t) => {
           const Icon = t.icon;
           const active = tab === t.key;
@@ -540,30 +540,36 @@ export const StorefrontAdminPage: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <label className="label-text">Hero Heading</label>
-                <input className="input-field" value={config.hero_title} onChange={(e) => setConfig({ ...config, hero_title: e.target.value })} />
+                <label className="label-text">Customer Care Phone / Mobile</label>
+                <input className="input-field" placeholder="e.g. +91 98765 43210" value={config.contact_phone || ""} onChange={(e) => setConfig({ ...config, contact_phone: e.target.value })} />
+                <p className="text-[11px] text-slate-400 mt-0.5">Shown in website header & footer for customer support.</p>
               </div>
               <div>
-                <label className="label-text">Customer Care Phone</label>
-                <input className="input-field" value={config.contact_phone || ""} onChange={(e) => setConfig({ ...config, contact_phone: e.target.value })} />
+                <label className="label-text">WhatsApp Support Number (Direct Chat)</label>
+                <input className="input-field" placeholder="e.g. +91 98765 43210" value={config.whatsapp_number || ""} onChange={(e) => setConfig({ ...config, whatsapp_number: e.target.value })} />
+                <p className="text-[11px] text-slate-400 mt-0.5">Enables customers to chat with you directly on WhatsApp.</p>
+              </div>
+              <div>
+                <label className="label-text">Support Email Address</label>
+                <input className="input-field" placeholder="orders@srivasavitextiles.com" value={config.contact_email || ""} onChange={(e) => setConfig({ ...config, contact_email: e.target.value })} />
+              </div>
+              <div>
+                <label className="label-text">Showroom / Store Address</label>
+                <input className="input-field" placeholder="Main Cloth Market, India" value={config.contact_address || ""} onChange={(e) => setConfig({ ...config, contact_address: e.target.value })} />
               </div>
               <div className="sm:col-span-2">
-                <label className="label-text">Hero Subtitle</label>
+                <label className="label-text">Store Website Headline</label>
+                <input className="input-field" value={config.hero_title} onChange={(e) => setConfig({ ...config, hero_title: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label-text">Store Website Subtitle / Tagline</label>
                 <input className="input-field" value={config.hero_subtitle} onChange={(e) => setConfig({ ...config, hero_subtitle: e.target.value })} />
-              </div>
-              <div>
-                <label className="label-text">Support Email</label>
-                <input className="input-field" value={config.contact_email || ""} onChange={(e) => setConfig({ ...config, contact_email: e.target.value })} />
-              </div>
-              <div>
-                <label className="label-text">Showroom Address</label>
-                <input className="input-field" value={config.contact_address || ""} onChange={(e) => setConfig({ ...config, contact_address: e.target.value })} />
               </div>
             </div>
           </div>
 
           <div className="card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-navy-900">Delivery & Payment Settings (Razorpay / UPI / Bank / COD)</h3>
+            <h3 className="text-sm font-bold text-navy-900">Online Payment & Delivery Options (UPI / Bank / COD)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
               <div>
                 <label className="label-text">Free Delivery Over (₹)</label>
@@ -573,31 +579,35 @@ export const StorefrontAdminPage: React.FC = () => {
                 <label className="label-text">Standard Delivery Fee (₹)</label>
                 <input type="number" className="input-field" value={Number(config.standard_delivery_charge)} onChange={(e) => setConfig({ ...config, standard_delivery_charge: e.target.value })} />
               </div>
-              <div>
-                <label className="label-text">UPI ID for Direct UPI</label>
-                <input className="input-field" value={config.upi_id || ""} onChange={(e) => setConfig({ ...config, upi_id: e.target.value })} />
+              <div className="sm:col-span-2">
+                <label className="label-text">Business UPI ID (GPay / PhonePe / Paytm / BHIM)</label>
+                <input className="input-field" placeholder="e.g. srivasavitextiles@okaxis or 9876543210@paytm" value={config.upi_id || ""} onChange={(e) => setConfig({ ...config, upi_id: e.target.value })} />
+                <p className="text-[11px] text-slate-400 mt-0.5">Customers transfer directly to this UPI ID at checkout.</p>
               </div>
-              <div className="flex flex-col justify-end gap-1.5">
-                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={config.cod_enabled} onChange={(e) => setConfig({ ...config, cod_enabled: e.target.checked })} /> Enable COD</label>
-                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={config.upi_enabled} onChange={(e) => setConfig({ ...config, upi_enabled: e.target.checked })} /> Enable Direct UPI</label>
-                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={config.bank_transfer_enabled} onChange={(e) => setConfig({ ...config, bank_transfer_enabled: e.target.checked })} /> Enable Bank Transfer</label>
+              <div className="sm:col-span-4 flex flex-wrap gap-6 pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={config.upi_enabled} onChange={(e) => setConfig({ ...config, upi_enabled: e.target.checked })} /> Enable Direct UPI Payments</label>
+                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={config.bank_transfer_enabled} onChange={(e) => setConfig({ ...config, bank_transfer_enabled: e.target.checked })} /> Enable Bank Transfer (IMPS/NEFT)</label>
+                <label className="flex items-center gap-2 font-semibold"><input type="checkbox" checked={config.cod_enabled} onChange={(e) => setConfig({ ...config, cod_enabled: e.target.checked })} /> Enable Cash on Delivery (COD)</label>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2 border-t border-slate-100">
+            <div className="space-y-4 text-xs pt-3 border-t border-slate-100">
               <div>
-                <label className="label-text">Razorpay Key ID</label>
-                <input className="input-field" placeholder="rzp_live_... or rzp_test_..." value={config.razorpay_key_id || ""} onChange={(e) => setConfig({ ...config, razorpay_key_id: e.target.value })} />
+                <label className="label-text">Bank Account Details (Displayed to Customers on Checkout)</label>
+                <textarea rows={4} className="input-field font-mono" placeholder={"Bank: State Bank of India\nAccount Name: Sri Vasavi Textiles\nAccount Number: 123456789012\nIFSC Code: SBIN0001234\nBranch: Main Branch"} value={config.bank_details_text || ""} onChange={(e) => setConfig({ ...config, bank_details_text: e.target.value })} />
+                <p className="text-[11px] text-slate-400 mt-0.5">Include Bank Name, Account Name, Account Number, and IFSC Code.</p>
               </div>
-              <div>
-                <label className="label-text">
-                  Razorpay Key Secret {config.has_razorpay_secret && <span className="text-emerald-700">(Configured ✓)</span>}
-                </label>
-                <input type="password" className="input-field" placeholder="Leave blank to keep existing secret" value={secretInputs.razorpay_key_secret} onChange={(e) => setSecretInputs({ ...secretInputs, razorpay_key_secret: e.target.value })} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label-text">Bank Transfer Details Shown to Buyers</label>
-                <textarea rows={2} className="input-field" value={config.bank_details_text || ""} onChange={(e) => setConfig({ ...config, bank_details_text: e.target.value })} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="label-text">Razorpay Key ID (Optional Automated Gateway)</label>
+                  <input className="input-field" placeholder="rzp_live_... or rzp_test_..." value={config.razorpay_key_id || ""} onChange={(e) => setConfig({ ...config, razorpay_key_id: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label-text">
+                    Razorpay Key Secret {config.has_razorpay_secret && <span className="text-emerald-700 font-bold">(Configured ✓)</span>}
+                  </label>
+                  <input type="password" className="input-field" placeholder="Leave blank to keep existing secret" value={secretInputs.razorpay_key_secret} onChange={(e) => setSecretInputs({ ...secretInputs, razorpay_key_secret: e.target.value })} />
+                </div>
               </div>
             </div>
           </div>

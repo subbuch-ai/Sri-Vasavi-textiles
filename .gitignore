@@ -7,6 +7,9 @@ venv/
 env/
 .pytest_cache/
 .env
+*.env
+backend/.env
+customer-website/.env
 *.db
 *.sqlite3
 backend/uploads/*
@@ -20,6 +23,9 @@ dist-ssr/
 *.local
 *.tsbuildinfo
 frontend/.env
+*.env
+backend/.env
+customer-website/.env
 
 # IDE / OS
 .vscode/

@@ -131,3 +131,4 @@ You will create **two projects** in Vercel from the same GitHub repository:
    - Mobile: `9876543210`
    - Password: `Password@123`
 4. **Customer Store**: Open your Vercel Customer URL, browse products, add to cart, and place a test order. Verify the order appears instantly in the ERP Orders module.
+

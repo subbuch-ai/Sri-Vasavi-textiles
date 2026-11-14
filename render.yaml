@@ -1,22 +1,13 @@
 services:
-  # 1. PostgreSQL Database
-  - type: postgres
-    name: sri-vasavi-textiles-db
-    plan: free
-    databaseName: sri_vasavi_textiles
-    user: postgres
-
-  # 2. FastAPI Backend
+  # 1. FastAPI Backend Web Service (connected to Supabase PostgreSQL)
   - type: web
     name: sri-vasavi-textiles-api
     runtime: python
-    buildCommand: cd backend && pip install -r requirements.txt && alembic upgrade head
+    buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: sri-vasavi-textiles-db
-          property: connectionString
+        value: "postgresql+psycopg://postgres.hhhntxbmhivushorsmaa:Srikala%4014321@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require"
       - key: APP_NAME
         value: "Sri Vasavi Textiles ERP"
       - key: APP_ENV
@@ -24,29 +15,6 @@ services:
       - key: DEBUG
         value: "false"
       - key: JWT_SECRET_KEY
-        generateValue: true
+        value: "svt-prod-jwt-secret-key-srivasavitextiles-2026-secure"
       - key: CORS_ORIGINS
         value: "*"
-
-  # 3. Customer Shopping Website
-  - type: web
-    name: sri-vasavi-textiles-shop
-    runtime: static
-    buildCommand: cd customer-website && npm install && npm run build
-    staticPublishPath: customer-website/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  # 4. ERP Portal
-  - type: web
-    name: sri-vasavi-textiles-erp
-    runtime: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-

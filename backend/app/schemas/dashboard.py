@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class DashboardKPIs(BaseModel):
     total_sales_today: Decimal
     total_sales_this_month: Decimal
+    total_sales_all_time: Optional[Decimal] = None
     total_purchases: Decimal
     total_revenue: Decimal
     total_expenses: Optional[Decimal] = None

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, List
 
@@ -24,20 +24,28 @@ def _dec(val) -> Decimal:
 
 
 def get_dashboard_overview(db: Session, include_financials: bool = True) -> DashboardOverview:
-    today = date.today()
+    ist = timezone(timedelta(hours=5, minutes=30))
+    today = datetime.now(ist).date()
     month_start = today.replace(day=1)
 
     total_sales_today = _dec(
         db.scalar(
             select(func.coalesce(func.sum(Sale.total_amount), 0)).where(
-                Sale.sale_date == today, Sale.status == "CONFIRMED"
+                Sale.sale_date == today, Sale.status != "CANCELLED"
             )
         )
     )
     total_sales_this_month = _dec(
         db.scalar(
             select(func.coalesce(func.sum(Sale.total_amount), 0)).where(
-                Sale.sale_date >= month_start, Sale.status == "CONFIRMED"
+                Sale.sale_date >= month_start, Sale.status != "CANCELLED"
+            )
+        )
+    )
+    total_sales_all_time = _dec(
+        db.scalar(
+            select(func.coalesce(func.sum(Sale.total_amount), 0)).where(
+                Sale.status != "CANCELLED"
             )
         )
     )
@@ -91,7 +99,20 @@ def get_dashboard_overview(db: Session, include_financials: bool = True) -> Dash
         db.scalar(
             select(func.count())
             .select_from(CustomerOrder)
-            .where(CustomerOrder.order_status.in_(["PENDING", "CONFIRMED", "PROCESSING", "READY_FOR_DELIVERY", "DISPATCHED"]))
+            .where(
+                CustomerOrder.order_status.in_([
+                    "PENDING",
+                    "ORDER_PLACED",
+                    "CONFIRMED",
+                    "PROCESSING",
+                    "PACKED",
+                    "READY_FOR_DISPATCH",
+                    "READY_FOR_DELIVERY",
+                    "DISPATCHED",
+                    "SHIPPED",
+                    "OUT_FOR_DELIVERY",
+                ])
+            )
         )
         or 0
     )
@@ -105,6 +126,7 @@ def get_dashboard_overview(db: Session, include_financials: bool = True) -> Dash
     kpis = DashboardKPIs(
         total_sales_today=total_sales_today,
         total_sales_this_month=total_sales_this_month,
+        total_sales_all_time=total_sales_all_time,
         total_purchases=total_purchases,
         total_revenue=total_revenue,
         total_expenses=total_expenses if include_financials else None,

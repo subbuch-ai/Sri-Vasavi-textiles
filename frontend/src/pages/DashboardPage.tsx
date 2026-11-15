@@ -90,28 +90,119 @@ export const DashboardPage: React.FC = () => {
         </button>
       </div>
 
-      {/* 14 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        <KpiCard title="Total Sales Today" value={formatINR(kpis.total_sales_today)} icon={IndianRupee} accent="navy" />
-        <KpiCard title="Sales This Month" value={formatINR(kpis.total_sales_this_month)} icon={TrendingUp} accent="gold" />
-        <KpiCard title="Total Purchases" value={formatINR(kpis.total_purchases)} icon={ShoppingBag} accent="navy" />
-        <KpiCard title="Total Revenue (Net)" value={formatINR(kpis.total_revenue)} icon={Wallet} accent="emerald" />
+      {/* 15 KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3.5">
+        <KpiCard
+          title="Today's Sales"
+          value={formatINR(kpis.total_sales_today)}
+          subtitle="Today's Invoiced"
+          icon={IndianRupee}
+          accent="navy"
+        />
+        <KpiCard
+          title="Sales This Month"
+          value={formatINR(kpis.total_sales_this_month)}
+          subtitle="Current Month"
+          icon={TrendingUp}
+          accent="gold"
+        />
+        <KpiCard
+          title="Total Sales (All Time)"
+          value={formatINR(kpis.total_sales_all_time ?? kpis.total_sales_this_month)}
+          subtitle="Cumulative Invoiced"
+          icon={IndianRupee}
+          accent="emerald"
+        />
+        <KpiCard
+          title="Total Purchases"
+          value={formatINR(kpis.total_purchases)}
+          subtitle="All Supplier Invoices"
+          icon={ShoppingBag}
+          accent="navy"
+        />
+        <KpiCard
+          title="Total Revenue (Net)"
+          value={formatINR(kpis.total_revenue)}
+          subtitle="Net of Tax & Returns"
+          icon={Wallet}
+          accent="emerald"
+        />
         {kpis.total_expenses !== null && kpis.total_expenses !== undefined && (
-          <KpiCard title="Total Expenses" value={formatINR(kpis.total_expenses)} icon={Receipt} accent="rose" />
+          <KpiCard
+            title="Total Expenses"
+            value={formatINR(kpis.total_expenses)}
+            subtitle="Approved Expenses"
+            icon={Receipt}
+            accent="rose"
+          />
         )}
         {kpis.gross_profit !== null && kpis.gross_profit !== undefined && (
-          <KpiCard title="Gross Profit" value={formatINR(kpis.gross_profit)} icon={TrendingUp} accent="emerald" />
+          <KpiCard
+            title="Gross Profit"
+            value={formatINR(kpis.gross_profit)}
+            subtitle="Revenue minus COGS"
+            icon={TrendingUp}
+            accent="emerald"
+          />
         )}
         {kpis.net_profit !== null && kpis.net_profit !== undefined && (
-          <KpiCard title="Net Profit" value={formatINR(kpis.net_profit)} icon={IndianRupee} accent={Number(kpis.net_profit) >= 0 ? "emerald" : "rose"} />
+          <KpiCard
+            title="Net Profit"
+            value={formatINR(kpis.net_profit)}
+            subtitle="After All Expenses"
+            icon={IndianRupee}
+            accent={Number(kpis.net_profit) >= 0 ? "emerald" : "rose"}
+          />
         )}
-        <KpiCard title="Total Customers" value={String(kpis.total_customers)} icon={Users} accent="navy" />
-        <KpiCard title="Total Suppliers" value={String(kpis.total_suppliers)} icon={Factory} accent="navy" />
-        <KpiCard title="Total Products" value={String(kpis.total_products)} icon={Package} accent="gold" />
-        <KpiCard title="Total Stock Value" value={formatINR(kpis.total_stock_value)} icon={Boxes} accent="navy" />
-        <KpiCard title="Pending Orders" value={String(kpis.pending_orders)} icon={ClipboardList} accent="amber" />
-        <KpiCard title="Customer Outstanding" value={formatINR(kpis.customer_outstanding)} icon={ArrowDownLeft} accent="amber" />
-        <KpiCard title="Supplier Outstanding" value={formatINR(kpis.supplier_outstanding)} icon={ArrowUpRight} accent="rose" />
+        <KpiCard
+          title="Total Customers"
+          value={String(kpis.total_customers)}
+          subtitle="Active Profiles"
+          icon={Users}
+          accent="navy"
+        />
+        <KpiCard
+          title="Total Suppliers"
+          value={String(kpis.total_suppliers)}
+          subtitle="Active Vendors"
+          icon={Factory}
+          accent="navy"
+        />
+        <KpiCard
+          title="Total Products"
+          value={String(kpis.total_products)}
+          subtitle="Catalog SKUs"
+          icon={Package}
+          accent="gold"
+        />
+        <KpiCard
+          title="Total Stock Value"
+          value={formatINR(kpis.total_stock_value)}
+          subtitle="Inventory Valuation"
+          icon={Boxes}
+          accent="navy"
+        />
+        <KpiCard
+          title="Pending Orders"
+          value={String(kpis.pending_orders)}
+          subtitle="Awaiting Delivery"
+          icon={ClipboardList}
+          accent="amber"
+        />
+        <KpiCard
+          title="Customer Outstanding"
+          value={formatINR(kpis.customer_outstanding)}
+          subtitle="Receivables Due"
+          icon={ArrowDownLeft}
+          accent="amber"
+        />
+        <KpiCard
+          title="Supplier Outstanding"
+          value={formatINR(kpis.supplier_outstanding)}
+          subtitle="Payables Due"
+          icon={ArrowUpRight}
+          accent="rose"
+        />
       </div>
 
       {/* Charts Row 1 */}

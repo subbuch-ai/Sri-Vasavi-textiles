@@ -424,6 +424,7 @@ export interface DashboardOverview {
   kpis: {
     total_sales_today: number | string;
     total_sales_this_month: number | string;
+    total_sales_all_time?: number | string | null;
     total_purchases: number | string;
     total_revenue: number | string;
     total_expenses?: number | string | null;

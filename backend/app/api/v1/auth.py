@@ -19,6 +19,7 @@ from app.core.security import (
 from app.models.auth import RefreshToken, Role, User, UserPermission
 from app.schemas.auth import (
     ChangePasswordRequest,
+    ForgotPasswordResetRequest,
     LoginRequest,
     OwnerSetupRequest,
     RefreshTokenRequest,
@@ -144,7 +145,14 @@ def login(
             joinedload(User.user_permissions).joinedload(UserPermission.permission),
             joinedload(User.employee_profile),
         )
-        .where(or_(User.username == identifier, User.email == identifier))
+        .where(
+            or_(
+                func.lower(User.username) == identifier,
+                func.lower(User.email) == identifier,
+                User.mobile == identifier,
+                (User.is_owner.is_(True) & (identifier.in_(["owner", "subbu.ch", "subbu", "admin"]))),
+            )
+        )
     )
     if not user or not verify_password(payload.password, user.password_hash):
         raise AuthenticationError("Invalid username/email or password.")
@@ -301,4 +309,49 @@ def change_password(
     )
     db.commit()
     return MessageResponse(message="Password updated successfully.")
+
+
+@router.post("/forgot-password-reset", response_model=MessageResponse)
+def forgot_password_reset(
+    payload: ForgotPasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Allow an owner or staff user to reset their password using their registered mobile number."""
+    identifier = payload.identifier.strip().lower()
+    mobile_input = payload.registered_mobile.strip().replace(" ", "").replace("-", "").replace("+91", "")
+
+    user = db.scalar(
+        select(User)
+        .where(
+            or_(
+                func.lower(User.username) == identifier,
+                func.lower(User.email) == identifier,
+                User.mobile == identifier,
+                (User.is_owner.is_(True) & (identifier.in_(["owner", "subbu.ch", "subbu", "admin"]))),
+            )
+        )
+    )
+    if not user:
+        raise ValidationError("No registered account found matching that username or email.")
+
+    clean_user_mobile = (user.mobile or "").strip().replace(" ", "").replace("-", "").replace("+91", "")
+    if not clean_user_mobile or clean_user_mobile != mobile_input:
+        raise ValidationError("The mobile number provided does not match our records for this account.")
+
+    user.password_hash = hash_password(payload.new_password)
+    record_audit_log(
+        db,
+        user_id=user.id,
+        username=user.username,
+        action="FORGOT_PASSWORD_RESET",
+        module="auth",
+        entity_type="user",
+        entity_id=user.id,
+        description=f"User '{user.username}' reset their password via mobile verification.",
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+    return MessageResponse(message="Password reset successfully! Please sign in with your new password.")
+
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bell, KeyRound, LogOut, Menu, Search, User as UserIcon } from "lucide-react";
+import { Bell, Eye, EyeOff, KeyRound, LogOut, Menu, Search, User as UserIcon } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { api, extractErrorMessage } from "../../services/api";
 import { Modal } from "../common/Modal";
@@ -34,6 +34,8 @@ export const TopNav: React.FC<{ onOpenMenu: () => void }> = ({ onOpenMenu }) => 
   const [pwdOpen, setPwdOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showCurrPassword, setShowCurrPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
   const [pwdErr, setPwdErr] = useState<string | null>(null);
 
@@ -258,24 +260,44 @@ export const TopNav: React.FC<{ onOpenMenu: () => void }> = ({ onOpenMenu }) => 
           {pwdMsg && <div className="p-3 rounded-lg bg-emerald-50 text-emerald-700 text-xs">{pwdMsg}</div>}
           <div>
             <label className="label-text">Current Password</label>
-            <input
-              type="password"
-              required
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="input-field"
-            />
+            <div className="relative">
+              <input
+                type={showCurrPassword ? "text" : "password"}
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="input-field pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrPassword((prev) => !prev)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy-900 p-1"
+                tabIndex={-1}
+              >
+                {showCurrPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="label-text">New Password (min 8 chars)</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="input-field"
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="input-field pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((prev) => !prev)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy-900 p-1"
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setPwdOpen(false)} className="btn-secondary">

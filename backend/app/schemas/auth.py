@@ -104,3 +104,10 @@ class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1)
     new_password: str = Field(min_length=8, max_length=128)
 
+
+class ForgotPasswordResetRequest(BaseModel):
+    identifier: str = Field(min_length=1, max_length=150)
+    registered_mobile: str = Field(min_length=6, max_length=20)
+    new_password: str = Field(min_length=8, max_length=128)
+
+

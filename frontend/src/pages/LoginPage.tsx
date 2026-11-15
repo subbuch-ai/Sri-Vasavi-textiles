@@ -50,7 +50,7 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleOpenForgot = () => {
-    setForgotIdentifier(enteredUsername || "subbu.ch");
+    setForgotIdentifier(enteredUsername || "");
     setForgotMobile("");
     setForgotNewPass("");
     setForgotConfirmPass("");
@@ -121,13 +121,14 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="label-text">Username or Email</label>
+            <label className="label-text">Username</label>
             <div className="relative">
               <UserIcon className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 className="input-field pl-9"
-                placeholder="subbu.ch or subbu.ch2012@gmail.com"
-                {...register("username_or_email", { required: "Username or email is required" })}
+                placeholder="Enter username"
+                autoComplete="username"
+                {...register("username_or_email", { required: "Username is required" })}
               />
             </div>
             {errors.username_or_email && (
@@ -215,13 +216,13 @@ export const LoginPage: React.FC = () => {
             {!forgotSuccess && (
               <form onSubmit={handleForgotSubmit} className="space-y-3.5">
                 <div>
-                  <label className="label-text">Username or Email</label>
+                  <label className="label-text">Username</label>
                   <div className="relative">
                     <UserIcon className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       className="input-field pl-9 text-xs"
-                      placeholder="e.g. subbu.ch or subbu.ch2012@gmail.com"
+                      placeholder="Enter your username"
                       value={forgotIdentifier}
                       onChange={(e) => setForgotIdentifier(e.target.value)}
                       required
@@ -236,7 +237,7 @@ export const LoginPage: React.FC = () => {
                     <input
                       type="text"
                       className="input-field pl-9 text-xs"
-                      placeholder="10-digit mobile number (e.g. 8328135219)"
+                      placeholder="Enter 10-digit mobile number"
                       value={forgotMobile}
                       onChange={(e) => setForgotMobile(e.target.value)}
                       required

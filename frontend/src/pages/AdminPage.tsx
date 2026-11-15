@@ -164,6 +164,7 @@ export const AdminPage: React.FC = () => {
     try {
       if (editingUser) {
         await api.patch(`/users/${editingUser.id}`, {
+          username: userForm.username.trim().toLowerCase(),
           email: userForm.email,
           full_name: userForm.full_name,
           mobile: userForm.mobile || null,
@@ -735,15 +736,15 @@ export const AdminPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="label-text">Username</label>
+              <label className="label-text">Username (Login ID)</label>
               <input
                 required
-                disabled={!!editingUser}
                 value={userForm.username}
-                onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                className="input-field disabled:bg-slate-100"
-                placeholder="karthik.admin"
+                onChange={(e) => setUserForm({ ...userForm, username: e.target.value.toLowerCase().trim() })}
+                className="input-field"
+                placeholder="e.g. subbarao or owner"
               />
+              <p className="text-[11px] text-slate-400 mt-0.5">Used for ERP login. Minimum 3 characters.</p>
             </div>
           </div>
 

@@ -83,6 +83,7 @@ class UserCreateRequest(BaseModel):
 
 
 class UserUpdateRequest(BaseModel):
+    username: Optional[str] = Field(default=None, min_length=3, max_length=50)
     email: Optional[EmailStr] = None
     full_name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     mobile: Optional[str] = Field(default=None, max_length=20)

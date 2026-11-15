@@ -220,6 +220,14 @@ def update_user(
     if not user:
         raise NotFoundError("User not found.")
 
+    if payload.username is not None:
+        normalized_username = payload.username.strip().lower()
+        if normalized_username != user.username:
+            conflict = db.scalar(select(User.id).where(User.username == normalized_username, User.id != user.id))
+            if conflict:
+                raise ConflictError(f"Username '{normalized_username}' is already taken.")
+            user.username = normalized_username
+
     if payload.email is not None:
         normalized_email = str(payload.email).strip().lower()
         conflict = db.scalar(select(User.id).where(User.email == normalized_email, User.id != user.id))

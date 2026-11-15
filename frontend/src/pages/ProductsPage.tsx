@@ -33,6 +33,7 @@ interface ProductForm {
   is_featured: boolean;
   is_new_arrival: boolean;
   is_best_seller: boolean;
+  image_url?: string;
 }
 
 export const ProductsPage: React.FC = () => {
@@ -47,6 +48,7 @@ export const ProductsPage: React.FC = () => {
 
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [catName, setCatName] = useState("");
   const [catDesc, setCatDesc] = useState("");
@@ -94,7 +96,9 @@ export const ProductsPage: React.FC = () => {
       is_featured: false,
       is_new_arrival: false,
       is_best_seller: false,
+      image_url: "",
     });
+    setPendingImageFile(null);
     setProdModalOpen(true);
   };
 
@@ -124,7 +128,9 @@ export const ProductsPage: React.FC = () => {
       is_featured: p.is_featured ?? false,
       is_new_arrival: p.is_new_arrival ?? false,
       is_best_seller: p.is_best_seller ?? false,
+      image_url: p.image_url || "",
     });
+    setPendingImageFile(null);
     setProdModalOpen(true);
   };
 
@@ -154,13 +160,20 @@ export const ProductsPage: React.FC = () => {
         is_best_seller: Boolean(data.is_best_seller),
         barcode: data.barcode?.trim() || null,
         product_code: data.product_code?.trim() || undefined,
+        image_url: data.image_url?.trim() || undefined,
       };
+      let targetProductId = editingProduct?.id;
       if (editingProduct) {
         await api.patch(`/products/${editingProduct.id}`, payload);
       } else {
-        await api.post("/products", payload);
+        const res = await api.post<{ id: number }>("/products", payload);
+        targetProductId = res.data.id;
+      }
+      if (pendingImageFile && targetProductId) {
+        await handleUploadImage(targetProductId, pendingImageFile);
       }
       setProdModalOpen(false);
+      setPendingImageFile(null);
       await loadData();
     } catch (err) {
       setModalError(extractErrorMessage(err));
@@ -455,6 +468,52 @@ export const ProductsPage: React.FC = () => {
           <div>
             <label className="label-text">Description</label>
             <textarea rows={2} className="input-field md:h-11" {...register("description")} />
+          </div>
+
+          {/* Product Image Section */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-navy-900 flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-emerald-600" /> Product Image
+              </label>
+              <span className="text-[11px] text-slate-500">JPG, PNG, or WEBP</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center text-xs">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">Image Web Link (URL)</label>
+                <input
+                  className="input-field bg-white"
+                  placeholder="https://example.com/saree.jpg"
+                  {...register("image_url")}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">Or Upload from Phone / Laptop</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-navy-900 file:text-white hover:file:bg-navy-800 cursor-pointer"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (f && editingProduct) {
+                      await handleUploadImage(editingProduct.id, f);
+                    } else if (f) {
+                      setPendingImageFile(f);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            {editingProduct?.image_url && (
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-200">
+                <span className="text-[11px] text-slate-500">Current Image:</span>
+                <img src={editingProduct.image_url} alt="Product preview" className="h-9 w-9 object-cover rounded-lg border border-slate-300 shadow-sm" />
+                <span className="text-[11px] text-emerald-700 font-semibold font-mono truncate max-w-xs">{editingProduct.image_url}</span>
+              </div>
+            )}
+            {pendingImageFile && !editingProduct && (
+              <p className="text-[11px] text-emerald-700 font-semibold">Selected file: {pendingImageFile.name} (will upload on save)</p>
+            )}
           </div>
 
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 grid grid-cols-2 sm:grid-cols-5 gap-3 items-center text-xs">

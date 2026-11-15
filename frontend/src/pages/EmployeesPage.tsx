@@ -31,7 +31,7 @@ export const EmployeesPage: React.FC = () => {
   const [department, setDepartment] = useState("Sales");
   const [joiningDate, setJoiningDate] = useState(todayISO());
   const [salary, setSalary] = useState("15000");
-  const [createLogin, setCreateLogin] = useState(true);
+  const [createLogin, setCreateLogin] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [roleName, setRoleName] = useState("EMPLOYEE");
@@ -195,7 +195,17 @@ export const EmployeesPage: React.FC = () => {
                         <p className="text-[11px] text-slate-400">{emp.employee_code} • {emp.mobile}</p>
                       </td>
                       <td className="px-4 py-3 text-xs">{emp.designation} {emp.department ? `(${emp.department})` : ""}</td>
-                      <td className="px-4 py-3 text-xs">{emp.username ? `${emp.username} (${emp.role_name})` : "No login"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {emp.username ? (
+                          <span className="inline-flex items-center gap-1 font-semibold text-navy-900">
+                            @{emp.username} <span className="text-[10px] bg-navy-50 text-navy-700 px-1.5 py-0.5 rounded font-bold uppercase">{emp.role_name}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                            Staff (No Login)
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs text-slate-500">{formatDate(emp.joining_date)}</td>
                       <td className="px-4 py-3 text-right text-xs font-semibold">{formatINR(emp.salary)}</td>
                       <td className="px-4 py-3 text-center"><StatusBadge status={emp.status} /></td>
@@ -305,25 +315,65 @@ export const EmployeesPage: React.FC = () => {
             <div><label className="label-text">Monthly Salary (₹)</label><input type="number" className="input-field" value={salary} onChange={(e) => setSalary(e.target.value)} /></div>
             <div><label className="label-text">Email</label><input type="email" className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           </div>
-          <label className="inline-flex items-center gap-2 text-xs font-semibold text-navy-900">
-            <input type="checkbox" checked={createLogin} onChange={(e) => setCreateLogin(e.target.checked)} className="rounded" />
-            Create ERP Login Account for this employee
-          </label>
-          {createLogin && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg">
-              <div><label className="label-text">Username</label><input required className="input-field" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
-              <div><label className="label-text">Password</label><input type="password" minLength={8} required className="input-field" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-              <div>
-                <label className="label-text">Role</label>
-                <select className="input-field" value={roleName} onChange={(e) => setRoleName(e.target.value)}>
-                  <option value="EMPLOYEE">Employee</option>
-                  <option value="SALES">Sales</option>
-                  <option value="ACCOUNTS">Accounts</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </div>
+          {/* Login Account Choice */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
+            <label className="text-xs font-bold text-navy-900 block">System Access & Software Login</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <label className={`p-3 rounded-xl border-2 cursor-pointer flex items-start gap-2.5 transition ${
+                !createLogin ? "border-navy-900 bg-white shadow-sm" : "border-slate-200 bg-slate-50"
+              }`}>
+                <input
+                  type="radio"
+                  name="loginChoice"
+                  checked={!createLogin}
+                  onChange={() => setCreateLogin(false)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="font-bold text-navy-900">Staff Record Only (No Login)</p>
+                  <p className="text-[11px] text-slate-500">For Tailors, Helpers, Warehouse, Delivery & Folding staff. No username or password needed.</p>
+                </div>
+              </label>
+
+              <label className={`p-3 rounded-xl border-2 cursor-pointer flex items-start gap-2.5 transition ${
+                createLogin ? "border-navy-900 bg-white shadow-sm" : "border-slate-200 bg-slate-50"
+              }`}>
+                <input
+                  type="radio"
+                  name="loginChoice"
+                  checked={createLogin}
+                  onChange={() => setCreateLogin(true)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="font-bold text-navy-900">Create ERP Login Account</p>
+                  <p className="text-[11px] text-slate-500">For Cashiers, Billing desk, Accounts & Sales staff who use the computer.</p>
+                </div>
+              </label>
             </div>
-          )}
+
+            {createLogin && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+                <div>
+                  <label className="label-text">Username *</label>
+                  <input required className="input-field bg-white" placeholder="e.g. karthik.sales" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().trim())} />
+                </div>
+                <div>
+                  <label className="label-text">Password *</label>
+                  <input type="password" minLength={8} required className="input-field bg-white" placeholder="Min 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label-text">Assigned Role</label>
+                  <select className="input-field bg-white" value={roleName} onChange={(e) => setRoleName(e.target.value)}>
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="SALES">Sales Counter</option>
+                    <option value="ACCOUNTS">Accounts</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setEmpOpen(false)} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">Create Employee</button>

@@ -138,6 +138,14 @@ def login(
 ) -> TokenResponse:
     """Authenticate user by username or email and return JWT access + refresh tokens."""
     identifier = payload.username_or_email.strip().lower()
+    conditions = [
+        func.lower(User.username) == identifier,
+        func.lower(User.email) == identifier,
+        User.mobile == identifier,
+    ]
+    if identifier in ["owner", "subbu.ch", "subbu", "admin"]:
+        conditions.append(User.is_owner.is_(True))
+
     user = db.scalar(
         select(User)
         .options(
@@ -145,14 +153,7 @@ def login(
             joinedload(User.user_permissions).joinedload(UserPermission.permission),
             joinedload(User.employee_profile),
         )
-        .where(
-            or_(
-                func.lower(User.username) == identifier,
-                func.lower(User.email) == identifier,
-                User.mobile == identifier,
-                (User.is_owner.is_(True) & (identifier.in_(["owner", "subbu.ch", "subbu", "admin"]))),
-            )
-        )
+        .where(or_(*conditions))
     )
     if not user or not verify_password(payload.password, user.password_hash):
         raise AuthenticationError("Invalid username/email or password.")
@@ -321,17 +322,15 @@ def forgot_password_reset(
     identifier = payload.identifier.strip().lower()
     mobile_input = payload.registered_mobile.strip().replace(" ", "").replace("-", "").replace("+91", "")
 
-    user = db.scalar(
-        select(User)
-        .where(
-            or_(
-                func.lower(User.username) == identifier,
-                func.lower(User.email) == identifier,
-                User.mobile == identifier,
-                (User.is_owner.is_(True) & (identifier.in_(["owner", "subbu.ch", "subbu", "admin"]))),
-            )
-        )
-    )
+    conditions = [
+        func.lower(User.username) == identifier,
+        func.lower(User.email) == identifier,
+        User.mobile == identifier,
+    ]
+    if identifier in ["owner", "subbu.ch", "subbu", "admin"]:
+        conditions.append(User.is_owner.is_(True))
+
+    user = db.scalar(select(User).where(or_(*conditions)))
     if not user:
         raise ValidationError("No registered account found matching that username or email.")
 

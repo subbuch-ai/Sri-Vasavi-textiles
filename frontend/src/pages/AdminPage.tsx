@@ -18,11 +18,13 @@ import { formatDate } from "../utils/formatters";
 import { Modal } from "../components/common/Modal";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
+import { useAuth } from "../context/AuthContext";
 
 type TabType = "users" | "roles" | "audit";
 type OverrideChoice = "default" | "grant" | "revoke";
 
 export const AdminPage: React.FC = () => {
+  const { user: currentUser, refreshUser } = useAuth();
   const [tab, setTab] = useState<TabType>("users");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
@@ -163,7 +165,7 @@ export const AdminPage: React.FC = () => {
     setMessage(null);
     try {
       if (editingUser) {
-        await api.patch(`/users/${editingUser.id}`, {
+        const res = await api.patch<User>(`/users/${editingUser.id}`, {
           username: userForm.username.trim().toLowerCase(),
           email: userForm.email,
           full_name: userForm.full_name,
@@ -172,7 +174,10 @@ export const AdminPage: React.FC = () => {
           is_active: editingUser.is_owner ? undefined : userForm.is_active,
           password: userForm.password.trim() ? userForm.password : undefined,
         });
-        setMessage({ type: "success", text: `Updated user '${editingUser.username}'.` });
+        setMessage({ type: "success", text: `Updated user '${res.data.username}'.` });
+        if (currentUser && currentUser.id === editingUser.id) {
+          await refreshUser();
+        }
       } else {
         await api.post("/users", {
           username: userForm.username,

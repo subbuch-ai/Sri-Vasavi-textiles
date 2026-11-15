@@ -22,11 +22,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const USER_PROFILE_KEY = "svt_user_profile";
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem(USER_PROFILE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [ownerInitialized, setOwnerInitialized] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!user);
 
   const refreshSettings = useCallback(async () => {
     try {
@@ -41,15 +50,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = tokenStorage.getAccess();
     if (!token) {
       setUser(null);
+      localStorage.removeItem(USER_PROFILE_KEY);
       return;
     }
     try {
       const res = await api.get<User>("/auth/me");
       setUser(res.data);
+      localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(res.data));
       await refreshSettings();
-    } catch {
-      tokenStorage.clear();
-      setUser(null);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number } };
+      if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
+        tokenStorage.clear();
+        localStorage.removeItem(USER_PROFILE_KEY);
+        setUser(null);
+      }
     }
   }, [refreshSettings]);
 
@@ -73,6 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password,
     });
     tokenStorage.setTokens(res.data.access_token, res.data.refresh_token);
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(res.data.user));
     setUser(res.data.user);
     setOwnerInitialized(true);
     await refreshSettings();
@@ -87,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }) => {
     const res = await api.post<TokenResponse>("/auth/setup-owner", payload);
     tokenStorage.setTokens(res.data.access_token, res.data.refresh_token);
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(res.data.user));
     setUser(res.data.user);
     setOwnerInitialized(true);
     await refreshSettings();
@@ -102,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore logout transport error
     } finally {
       tokenStorage.clear();
+      localStorage.removeItem(USER_PROFILE_KEY);
       setUser(null);
       setSettings(null);
     }

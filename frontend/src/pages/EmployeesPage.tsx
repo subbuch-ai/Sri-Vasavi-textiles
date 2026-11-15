@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, ClipboardList, Plus, UserX } from "lucide-react";
+import { CheckCircle2, ClipboardList, Edit2, Plus, UserX } from "lucide-react";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -42,6 +42,18 @@ export const EmployeesPage: React.FC = () => {
   const [taskDesc, setTaskDesc] = useState("");
   const [taskPriority, setTaskPriority] = useState("MEDIUM");
   const [taskDue, setTaskDue] = useState("");
+
+  // Edit Employee State
+  const [editEmpOpen, setEditEmpOpen] = useState(false);
+  const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editMobile, setEditMobile] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editDesignation, setEditDesignation] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [editSalary, setEditSalary] = useState("0");
+  const [editStatus, setEditStatus] = useState("ACTIVE");
+  const [editNotes, setEditNotes] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -92,6 +104,42 @@ export const EmployeesPage: React.FC = () => {
       setEmail("");
       setUsername("");
       setPassword("");
+      await loadData();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    }
+  };
+
+  const openEditEmployee = (emp: Employee) => {
+    setEditingEmp(emp);
+    setEditFullName(emp.full_name);
+    setEditMobile(emp.mobile);
+    setEditEmail(emp.email || "");
+    setEditDesignation(emp.designation);
+    setEditDepartment(emp.department || "");
+    setEditSalary(String(emp.salary || 0));
+    setEditStatus(emp.status);
+    setEditNotes(emp.notes || "");
+    setEditEmpOpen(true);
+  };
+
+  const handleUpdateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmp) return;
+    setError(null);
+    try {
+      await api.patch(`/employees/${editingEmp.id}`, {
+        full_name: editFullName,
+        mobile: editMobile,
+        email: editEmail || null,
+        designation: editDesignation,
+        department: editDepartment || null,
+        salary: Number(editSalary),
+        status: editStatus,
+        notes: editNotes || null,
+      });
+      setEditEmpOpen(false);
+      setEditingEmp(null);
       await loadData();
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -210,11 +258,26 @@ export const EmployeesPage: React.FC = () => {
                       <td className="px-4 py-3 text-right text-xs font-semibold">{formatINR(emp.salary)}</td>
                       <td className="px-4 py-3 text-center"><StatusBadge status={emp.status} /></td>
                       <td className="px-4 py-3 text-right">
-                        {canManage && emp.status === "ACTIVE" && (
-                          <button onClick={() => handleDeactivateEmployee(emp)} className="p-1.5 rounded hover:bg-rose-50 text-rose-600" title="Deactivate">
-                            <UserX className="h-4 w-4" />
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {canManage && (
+                            <button
+                              onClick={() => openEditEmployee(emp)}
+                              className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-navy-900 transition-colors"
+                              title="Edit Employee"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canManage && emp.status === "ACTIVE" && (
+                            <button
+                              onClick={() => handleDeactivateEmployee(emp)}
+                              className="p-1.5 rounded hover:bg-rose-50 text-rose-600 transition-colors"
+                              title="Deactivate Employee"
+                            >
+                              <UserX className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -415,6 +478,57 @@ export const EmployeesPage: React.FC = () => {
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setTaskOpen(false)} className="btn-secondary">Cancel</button>
             <button type="submit" className="btn-primary">Assign Task</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Employee Modal */}
+      <Modal open={editEmpOpen} onClose={() => setEditEmpOpen(false)} title={`Edit Employee: ${editingEmp?.full_name || ""}`}>
+        <form onSubmit={handleUpdateEmployee} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label-text">Full Name *</label>
+              <input required className="input-field" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-text">Mobile *</label>
+              <input required className="input-field" value={editMobile} onChange={(e) => setEditMobile(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label-text">Designation *</label>
+              <input required className="input-field" value={editDesignation} onChange={(e) => setEditDesignation(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-text">Department</label>
+              <input className="input-field" value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label-text">Monthly Salary (₹)</label>
+              <input type="number" className="input-field" value={editSalary} onChange={(e) => setEditSalary(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-text">Status</label>
+              <select className="input-field" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="label-text">Email</label>
+            <input type="email" className="input-field" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-text">Notes</label>
+            <textarea rows={2} className="input-field" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setEditEmpOpen(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" className="btn-primary">Save Changes</button>
           </div>
         </form>
       </Modal>

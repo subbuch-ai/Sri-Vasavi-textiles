@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_client_ip, require_owner
@@ -13,6 +13,7 @@ from app.core.security import hash_password
 from app.models.auth import Permission, Role, RolePermission, User, UserPermission
 from app.schemas.auth import (
     PermissionOut,
+    RoleCreateRequest,
     RoleOut,
     RolePermissionsUpdateRequest,
     UserCreateRequest,
@@ -110,6 +111,100 @@ def update_role_permissions(
     )
 
 
+@router.post("/roles", response_model=RoleOut, status_code=201)
+def create_role(
+    payload: RoleCreateRequest,
+    request: Request,
+    owner: User = Depends(require_owner),
+    db: Session = Depends(get_db),
+) -> RoleOut:
+    """Create a new custom ERP role with initial permissions (Owner-only)."""
+    normalized_name = payload.name.strip().upper().replace(" ", "_")
+    if normalized_name == ROLE_OWNER:
+        raise ValidationError("Cannot create an additional OWNER role.")
+
+    existing = db.scalar(select(Role).where(func.upper(Role.name) == normalized_name))
+    if existing:
+        raise ConflictError(f"A role with code '{normalized_name}' already exists.")
+
+    perms = db.scalars(select(Permission).where(Permission.code.in_(payload.permissions))).all()
+    perm_by_code = {p.code: p for p in perms}
+
+    role = Role(
+        name=normalized_name,
+        display_name=payload.display_name.strip(),
+        description=payload.description.strip() if payload.description else None,
+        is_system=False,
+    )
+    db.add(role)
+    db.flush()
+
+    for code in sorted(set(payload.permissions)):
+        if code in perm_by_code:
+            db.add(RolePermission(role_id=role.id, permission_id=perm_by_code[code].id))
+
+    record_audit_log(
+        db,
+        user_id=owner.id,
+        username=owner.username,
+        action="CREATE_ROLE",
+        module="admin",
+        entity_type="role",
+        entity_id=role.id,
+        description=f"Created custom role '{role.display_name}' ({role.name}).",
+        new_values={"name": role.name, "display_name": role.display_name, "permissions": payload.permissions},
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+
+    return RoleOut(
+        id=role.id,
+        name=role.name,
+        display_name=role.display_name,
+        description=role.description,
+        is_system=role.is_system,
+        permissions=sorted(set(payload.permissions)),
+    )
+
+
+@router.delete("/roles/{role_id}", response_model=MessageResponse)
+def delete_role(
+    role_id: int,
+    request: Request,
+    owner: User = Depends(require_owner),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Delete a custom ERP role (Owner-only). System roles cannot be deleted."""
+    role = db.scalar(select(Role).where(Role.id == role_id))
+    if not role:
+        raise NotFoundError("Role not found.")
+    if role.is_system or role.name in ["OWNER", "ADMIN", "SALES", "ACCOUNTS", "EMPLOYEE"]:
+        raise ValidationError(f"System role '{role.display_name}' cannot be deleted.")
+
+    assigned_users_count = db.scalar(select(func.count()).select_from(User).where(User.role_id == role.id)) or 0
+    if assigned_users_count > 0:
+        raise ValidationError(
+            f"Cannot delete role '{role.display_name}': {assigned_users_count} user account(s) are currently assigned to it. Please reassign them first."
+        )
+
+    role_name = role.name
+    db.delete(role)
+    record_audit_log(
+        db,
+        user_id=owner.id,
+        username=owner.username,
+        action="DELETE_ROLE",
+        module="admin",
+        entity_type="role",
+        entity_id=role_id,
+        description=f"Deleted custom role '{role_name}'.",
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+    return MessageResponse(message=f"Role '{role_name}' deleted successfully.")
+
+
+
 @router.get("", response_model=List[UserOut])
 def list_users(
     _: User = Depends(require_owner),
@@ -136,12 +231,12 @@ def create_user(
     db: Session = Depends(get_db),
 ) -> UserOut:
     """Create a new Admin, Sales, Accounts, or Employee account (Owner-only)."""
-    username = payload.username.strip().lower()
+    raw_username = payload.username.strip()
     email = str(payload.email).strip().lower()
 
-    if db.scalar(select(User.id).where(User.username == username)):
-        raise ConflictError(f"Username '{username}' is already taken.")
-    if db.scalar(select(User.id).where(User.email == email)):
+    if db.scalar(select(User.id).where(func.lower(User.username) == raw_username.lower())):
+        raise ConflictError(f"Username '{raw_username}' is already taken.")
+    if db.scalar(select(User.id).where(func.lower(User.email) == email)):
         raise ConflictError(f"Email '{email}' is already registered.")
 
     role = db.scalar(select(Role).where(Role.name == payload.role_name.strip().upper()))
@@ -151,7 +246,7 @@ def create_user(
         raise ValidationError("Additional OWNER accounts cannot be created via user management.")
 
     user = User(
-        username=username,
+        username=raw_username,
         email=email,
         full_name=payload.full_name.strip(),
         mobile=payload.mobile,
@@ -221,16 +316,20 @@ def update_user(
         raise NotFoundError("User not found.")
 
     if payload.username is not None:
-        normalized_username = payload.username.strip().lower()
-        if normalized_username != user.username:
-            conflict = db.scalar(select(User.id).where(User.username == normalized_username, User.id != user.id))
+        raw_username = payload.username.strip()
+        if raw_username.lower() != user.username.lower():
+            conflict = db.scalar(
+                select(User.id).where(func.lower(User.username) == raw_username.lower(), User.id != user.id)
+            )
             if conflict:
-                raise ConflictError(f"Username '{normalized_username}' is already taken.")
-            user.username = normalized_username
+                raise ConflictError(f"Username '{raw_username}' is already taken.")
+        user.username = raw_username
 
     if payload.email is not None:
         normalized_email = str(payload.email).strip().lower()
-        conflict = db.scalar(select(User.id).where(User.email == normalized_email, User.id != user.id))
+        conflict = db.scalar(
+            select(User.id).where(func.lower(User.email) == normalized_email, User.id != user.id)
+        )
         if conflict:
             raise ConflictError("Another account already uses this email.")
         user.email = normalized_email

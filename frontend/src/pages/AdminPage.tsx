@@ -7,6 +7,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Trash2,
   UserCog,
   UserX,
   Users,
@@ -63,6 +64,14 @@ export const AdminPage: React.FC = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [rolePermSet, setRolePermSet] = useState<Set<string>>(new Set());
   const [savingRolePerms, setSavingRolePerms] = useState(false);
+
+  // Custom Role Creation state
+  const [createRoleOpen, setCreateRoleOpen] = useState(false);
+  const [roleFormName, setRoleFormName] = useState("");
+  const [roleFormDisplayName, setRoleFormDisplayName] = useState("");
+  const [roleFormDesc, setRoleFormDesc] = useState("");
+  const [roleFormPerms, setRoleFormPerms] = useState<Set<string>>(new Set());
+  const [creatingRole, setCreatingRole] = useState(false);
 
   const groupedPermissions = useMemo(() => {
     const groups: Record<string, PermissionItem[]> = {};
@@ -166,7 +175,7 @@ export const AdminPage: React.FC = () => {
     try {
       if (editingUser) {
         const res = await api.patch<User>(`/users/${editingUser.id}`, {
-          username: userForm.username.trim().toLowerCase(),
+          username: userForm.username.trim(),
           email: userForm.email,
           full_name: userForm.full_name,
           mobile: userForm.mobile || null,
@@ -293,6 +302,53 @@ export const AdminPage: React.FC = () => {
       setMessage({ type: "error", text: extractErrorMessage(err, "Failed to update role permissions.") });
     } finally {
       setSavingRolePerms(false);
+    }
+  };
+
+  const openCreateRole = () => {
+    setRoleFormName("");
+    setRoleFormDisplayName("");
+    setRoleFormDesc("");
+    setRoleFormPerms(new Set(["sales:view", "products:view", "orders:view"]));
+    setCreateRoleOpen(true);
+  };
+
+  const handleCreateRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roleFormDisplayName.trim()) return;
+    const code = roleFormName.trim()
+      ? roleFormName.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_")
+      : roleFormDisplayName.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    setCreatingRole(true);
+    setMessage(null);
+    try {
+      const res = await api.post<RoleItem>("/users/roles", {
+        name: code,
+        display_name: roleFormDisplayName.trim(),
+        description: roleFormDesc.trim() || null,
+        permissions: Array.from(roleFormPerms),
+      });
+      setMessage({ type: "success", text: `Created new role '${res.data.display_name}'.` });
+      setCreateRoleOpen(false);
+      await loadCoreData();
+      handleSelectRole(res.data);
+    } catch (err) {
+      setMessage({ type: "error", text: extractErrorMessage(err, "Failed to create role.") });
+    } finally {
+      setCreatingRole(false);
+    }
+  };
+
+  const handleDeleteRole = async (role: RoleItem) => {
+    if (!window.confirm(`Are you sure you want to permanently delete custom role '${role.display_name}'?`)) return;
+    setMessage(null);
+    try {
+      await api.delete(`/users/roles/${role.id}`);
+      setMessage({ type: "success", text: `Deleted role '${role.display_name}'.` });
+      setSelectedRoleId(null);
+      await loadCoreData();
+    } catch (err) {
+      setMessage({ type: "error", text: extractErrorMessage(err, "Failed to delete role.") });
     }
   };
 
@@ -487,9 +543,18 @@ export const AdminPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-3 space-y-2">
             <div className="card p-3 space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
-                ERP Roles
-              </p>
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  ERP Roles
+                </p>
+                <button
+                  type="button"
+                  onClick={openCreateRole}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-navy-800 hover:text-gold-600 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Role
+                </button>
+              </div>
               {roles.map((role) => (
                 <button
                   key={role.id}
@@ -501,7 +566,18 @@ export const AdminPage: React.FC = () => {
                       : "hover:bg-slate-100 text-slate-700"
                   }`}
                 >
-                  <div className="text-sm font-semibold">{role.display_name}</div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-semibold truncate">{role.display_name}</span>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                        role.is_system
+                          ? "bg-slate-200/60 text-slate-600"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {role.is_system ? "System" : "Custom"}
+                    </span>
+                  </div>
                   <div
                     className={`text-[11px] mt-0.5 ${
                       selectedRole?.id === role.id ? "text-slate-300" : "text-slate-500"
@@ -532,17 +608,28 @@ export const AdminPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {selectedRole.name !== "OWNER" && (
-                    <button
-                      type="button"
-                      onClick={handleSaveRolePermissions}
-                      disabled={savingRolePerms}
-                      className="btn-gold"
-                    >
-                      <Check className="h-4 w-4" />
-                      {savingRolePerms ? "Saving..." : "Save Role Permissions"}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {!selectedRole.is_system && selectedRole.name !== "OWNER" && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRole(selectedRole)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete Role
+                      </button>
+                    )}
+                    {selectedRole.name !== "OWNER" && (
+                      <button
+                        type="button"
+                        onClick={handleSaveRolePermissions}
+                        disabled={savingRolePerms}
+                        className="btn-gold"
+                      >
+                        <Check className="h-4 w-4" />
+                        {savingRolePerms ? "Saving..." : "Save Role Permissions"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -745,9 +832,9 @@ export const AdminPage: React.FC = () => {
               <input
                 required
                 value={userForm.username}
-                onChange={(e) => setUserForm({ ...userForm, username: e.target.value.toLowerCase().trim() })}
+                onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
                 className="input-field"
-                placeholder="e.g. subbarao or owner"
+                placeholder="e.g. subbarao or Subbu"
               />
               <p className="text-[11px] text-slate-400 mt-0.5">Used for ERP login. Minimum 3 characters.</p>
             </div>
@@ -892,6 +979,135 @@ export const AdminPage: React.FC = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* CREATE NEW ROLE MODAL */}
+      <Modal open={createRoleOpen} onClose={() => setCreateRoleOpen(false)} title="Create New ERP Role" maxWidthClass="max-w-2xl">
+        <form onSubmit={handleCreateRole} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label-text">Role Display Name *</label>
+              <input
+                required
+                value={roleFormDisplayName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setRoleFormDisplayName(val);
+                  if (!roleFormName || roleFormName === roleFormDisplayName.toUpperCase().replace(/[^A-Z0-9_]/g, "_")) {
+                    setRoleFormName(val.toUpperCase().replace(/[^A-Z0-9_]/g, "_"));
+                  }
+                }}
+                className="input-field"
+                placeholder="e.g. Cutting Master or Billing Staff"
+              />
+            </div>
+            <div>
+              <label className="label-text">Role Code (System Identifier) *</label>
+              <input
+                required
+                value={roleFormName}
+                onChange={(e) => setRoleFormName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
+                className="input-field"
+                placeholder="e.g. CUTTING_MASTER"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label-text">Description</label>
+            <input
+              value={roleFormDesc}
+              onChange={(e) => setRoleFormDesc(e.target.value)}
+              className="input-field"
+              placeholder="e.g. Manages fabric cutting, measurements, and production queues"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="label-text mb-0">Initial Permissions ({roleFormPerms.size} selected)</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoleFormPerms(new Set(permissions.map((p) => p.code)))}
+                  className="text-xs font-semibold text-navy-700 hover:text-gold-600"
+                >
+                  Select All
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => setRoleFormPerms(new Set())}
+                  className="text-xs font-semibold text-slate-500 hover:text-rose-600"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto space-y-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50">
+              {groupedPermissions.map(([mod, items]) => {
+                const allSelected = items.every((i) => roleFormPerms.has(i.code));
+                return (
+                  <div key={mod} className="bg-white rounded-lg p-2.5 border border-slate-200/80">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-navy-900">{mod}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleFormPerms((prev) => {
+                            const next = new Set(prev);
+                            if (allSelected) {
+                              items.forEach((i) => next.delete(i.code));
+                            } else {
+                              items.forEach((i) => next.add(i.code));
+                            }
+                            return next;
+                          });
+                        }}
+                        className="text-[11px] font-semibold text-gold-600 hover:text-navy-900"
+                      >
+                        {allSelected ? "Deselect Module" : "Select Module"}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {items.map((perm) => (
+                        <label key={perm.code} className="flex items-center gap-2 p-1 rounded hover:bg-slate-50 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={roleFormPerms.has(perm.code)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setRoleFormPerms((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(perm.code);
+                                else next.delete(perm.code);
+                                return next;
+                              });
+                            }}
+                            className="rounded border-slate-300 text-navy-800 focus:ring-navy-800"
+                          />
+                          <span className="text-slate-700 truncate" title={perm.description || perm.code}>
+                            {perm.description || perm.code}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setCreateRoleOpen(false)} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={creatingRole} className="btn-primary">
+              {creatingRole ? "Creating..." : "Create Role"}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

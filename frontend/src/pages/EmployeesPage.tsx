@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ClipboardList, Edit2, Plus, UserX } from "lucide-react";
 import { EmptyState } from "../components/common/EmptyState";
 import { Modal } from "../components/common/Modal";
@@ -8,6 +8,19 @@ import { api, extractErrorMessage } from "../services/api";
 import { AuditLog } from "../types/auth";
 import { Employee, EmployeeTask, PaginatedResponse } from "../types/erp";
 import { formatDate, formatINR, todayISO } from "../utils/formatters";
+
+const DEFAULT_DEPARTMENTS = [
+  "Sales & Retail Counter",
+  "Wholesale & B2B Orders",
+  "Accounts & Finance",
+  "Warehouse & Inventory",
+  "Weaving & Looms",
+  "Dyeing & Printing",
+  "Cutting & Tailoring",
+  "Quality Inspection",
+  "Packaging & Dispatch",
+  "Administration & HR",
+];
 
 export const EmployeesPage: React.FC = () => {
   const { hasPermission } = usePermission();
@@ -21,6 +34,8 @@ export const EmployeesPage: React.FC = () => {
   const [tasks, setTasks] = useState<EmployeeTask[]>([]);
   const [myTasks, setMyTasks] = useState<EmployeeTask[]>([]);
   const [myActivity, setMyActivity] = useState<AuditLog[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<Array<{ id: number; name: string; display_name: string }>>([]);
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const [empOpen, setEmpOpen] = useState(false);
@@ -58,13 +73,24 @@ export const EmployeesPage: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       if (canViewAll) {
-        const [empRes, tRes] = await Promise.all([
+        const promises: Promise<unknown>[] = [
           api.get<Employee[]>("/employees"),
           api.get<EmployeeTask[]>("/employees/tasks"),
-        ]);
+        ];
+        if (canManage) {
+          promises.push(api.get<Array<{ id: number; name: string; display_name: string }>>("/users/roles").catch(() => ({ data: [] })));
+        }
+        const results = await Promise.all(promises);
+        const empRes = results[0] as { data: Employee[] };
+        const tRes = results[1] as { data: EmployeeTask[] };
         setEmployees(empRes.data);
         setTasks(tRes.data);
         if (empRes.data.length > 0) setTaskEmpId((prev) => prev || empRes.data[0].id);
+
+        if (results[2]) {
+          const rolesRes = results[2] as { data: Array<{ id: number; name: string; display_name: string }> };
+          setAvailableRoles(rolesRes.data || []);
+        }
       }
       const [mtRes, actRes] = await Promise.all([
         api.get<EmployeeTask[]>("/employees/my-tasks"),
@@ -75,7 +101,20 @@ export const EmployeesPage: React.FC = () => {
     } catch (err) {
       setError(extractErrorMessage(err));
     }
-  }, [canViewAll]);
+  }, [canViewAll, canManage]);
+
+  const allDepartments = useMemo(() => {
+    const deptSet = new Set(DEFAULT_DEPARTMENTS);
+    employees.forEach((e) => {
+      if (e.department?.trim()) deptSet.add(e.department.trim());
+    });
+    return Array.from(deptSet).sort();
+  }, [employees]);
+
+  const filteredEmployees = useMemo(() => {
+    if (!selectedDepartmentFilter) return employees;
+    return employees.filter((e) => e.department === selectedDepartmentFilter);
+  }, [employees, selectedDepartmentFilter]);
 
   useEffect(() => {
     loadData();
@@ -218,25 +257,50 @@ export const EmployeesPage: React.FC = () => {
       </div>
 
       {tab === "directory" && canViewAll && (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-left">Employee</th>
-                  <th className="px-4 py-3 text-left">Designation / Dept</th>
-                  <th className="px-4 py-3 text-left">Login Role</th>
-                  <th className="px-4 py-3 text-left">Joining Date</th>
-                  <th className="px-4 py-3 text-right">Salary</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {employees.length === 0 ? (
-                  <tr><td colSpan={7}><EmptyState title="No employees added yet" /></td></tr>
-                ) : (
-                  employees.map((emp) => (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-slate-600">Filter by Department:</label>
+              <select
+                value={selectedDepartmentFilter}
+                onChange={(e) => setSelectedDepartmentFilter(e.target.value)}
+                className="input-field text-xs py-1.5 px-3 w-auto bg-slate-50 border-slate-200"
+              >
+                <option value="">All Departments ({employees.length})</option>
+                {allDepartments.map((dept) => {
+                  const count = employees.filter((e) => e.department === dept).length;
+                  return (
+                    <option key={dept} value={dept}>
+                      {dept} {count > 0 ? `(${count})` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <p className="text-xs text-slate-400">
+              Showing {filteredEmployees.length} of {employees.length} employees
+            </p>
+          </div>
+
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Employee</th>
+                    <th className="px-4 py-3 text-left">Designation / Dept</th>
+                    <th className="px-4 py-3 text-left">Login Role</th>
+                    <th className="px-4 py-3 text-left">Joining Date</th>
+                    <th className="px-4 py-3 text-right">Salary</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredEmployees.length === 0 ? (
+                    <tr><td colSpan={7}><EmptyState title="No employees found in this view" /></td></tr>
+                  ) : (
+                    filteredEmployees.map((emp) => (
                     <tr key={emp.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">
                         <p className="font-semibold text-xs text-navy-900">{emp.full_name}</p>
@@ -371,7 +435,10 @@ export const EmployeesPage: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div><label className="label-text">Designation *</label><input required className="input-field" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="Sales Executive" /></div>
-            <div><label className="label-text">Department</label><input className="input-field" value={department} onChange={(e) => setDepartment(e.target.value)} /></div>
+            <div>
+              <label className="label-text">Department</label>
+              <input className="input-field" list="departments-list" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Select or type department" />
+            </div>
             <div><label className="label-text">Joining Date</label><input type="date" required className="input-field" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} /></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -419,7 +486,7 @@ export const EmployeesPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
                 <div>
                   <label className="label-text">Username *</label>
-                  <input required className="input-field bg-white" placeholder="e.g. karthik.sales" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().trim())} />
+                  <input required className="input-field bg-white" placeholder="e.g. karthik.sales" value={username} onChange={(e) => setUsername(e.target.value.trim())} />
                 </div>
                 <div>
                   <label className="label-text">Password *</label>
@@ -428,10 +495,22 @@ export const EmployeesPage: React.FC = () => {
                 <div>
                   <label className="label-text">Assigned Role</label>
                   <select className="input-field bg-white" value={roleName} onChange={(e) => setRoleName(e.target.value)}>
-                    <option value="EMPLOYEE">Employee</option>
-                    <option value="SALES">Sales Counter</option>
-                    <option value="ACCOUNTS">Accounts</option>
-                    <option value="ADMIN">Admin</option>
+                    {availableRoles.length > 0 ? (
+                      availableRoles
+                        .filter((r) => r.name !== "OWNER")
+                        .map((r) => (
+                          <option key={r.id} value={r.name}>
+                            {r.display_name} ({r.name})
+                          </option>
+                        ))
+                    ) : (
+                      <>
+                        <option value="EMPLOYEE">Employee</option>
+                        <option value="SALES">Sales Counter</option>
+                        <option value="ACCOUNTS">Accounts</option>
+                        <option value="ADMIN">Admin</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -502,7 +581,7 @@ export const EmployeesPage: React.FC = () => {
             </div>
             <div>
               <label className="label-text">Department</label>
-              <input className="input-field" value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} />
+              <input className="input-field" list="departments-list" value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} placeholder="Select or type department" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -532,6 +611,13 @@ export const EmployeesPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Dynamic Textile Departments Datalist */}
+      <datalist id="departments-list">
+        {allDepartments.map((d) => (
+          <option key={d} value={d} />
+        ))}
+      </datalist>
     </div>
   );
 };

@@ -82,18 +82,18 @@ def create_employee(
     if payload.create_login_account:
         if not payload.username or not payload.password:
             raise ValidationError("Username and password are required when creating a login account.")
-        uname = payload.username.strip().lower()
-        email = (str(payload.email).lower() if payload.email else f"{uname}@srivasavitextiles.com")
-        if db.scalar(select(User.id).where(User.username == uname)):
-            raise ConflictError(f"Username '{uname}' already exists.")
-        if db.scalar(select(User.id).where(User.email == email)):
+        raw_uname = payload.username.strip()
+        email = (str(payload.email).lower() if payload.email else f"{raw_uname.lower()}@srivasavitextiles.com")
+        if db.scalar(select(User.id).where(func.lower(User.username) == raw_uname.lower())):
+            raise ConflictError(f"Username '{raw_uname}' already exists.")
+        if db.scalar(select(User.id).where(func.lower(User.email) == email)):
             raise ConflictError(f"Email '{email}' already exists.")
         role = db.scalar(select(Role).where(Role.name == payload.role_name.strip().upper()))
         if not role or role.name == ROLE_OWNER:
             raise ValidationError("Invalid staff role selected.")
 
         new_user = User(
-            username=uname,
+            username=raw_uname,
             email=email,
             full_name=payload.full_name.strip(),
             mobile=payload.mobile.strip(),

@@ -24,6 +24,13 @@ class RoleOut(BaseModel):
     permissions: List[str] = []
 
 
+class RoleCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
+    display_name: str = Field(min_length=2, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=255)
+    permissions: List[str] = []
+
+
 class UserPermissionOverride(BaseModel):
     permission_code: str
     granted: bool
